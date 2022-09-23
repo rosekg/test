@@ -1,0 +1,64 @@
+import xml.etree.ElementTree as ET
+import pandas as pd
+
+
+def parseXML(xmlfile):
+
+    # create element tree object
+    tree = ET.parse(xmlfile)
+
+    # get root element
+    root = tree.getroot()
+
+    # create empty list for jobs
+    jobList = []       
+        
+    for item in root.findall('.//'):
+        for jobAttr in item.findall('JOB'):
+            jobName = []
+            jobName.append(jobAttr.get('JOBNAME'))
+            
+            preJobName = []
+            if len(jobAttr.findall('INCOND')) == 0 :
+                preJobName.append("None")
+            else:
+                for incondAttr in jobAttr.findall('INCOND'):
+                    preJobName.append(incondAttr.get('NAME'))
+            
+            ssJobName = []
+            if len(jobAttr.findall('OUTCOND')) == 0 :
+                preJobName.append("None")
+            else:
+                for outcondAttr in jobAttr.findall('OUTCOND'):
+                    ssJobName.append(outcondAttr.get('NAME'))
+                        
+            jobList.append([jobName,preJobName,ssJobName])
+
+    # return job list
+    return jobList
+
+
+def savetoCSV(jobitems, filename):
+
+    df = pd.DataFrame(jobitems)
+    df.columns = ['JOBNAME','PREDECESSOR','SUCCESSOR']
+    df['JOBNAME'] = ['|'.join(map(str, l)) for l in df['JOBNAME']]
+    df['PREDECESSOR'] = ['|'.join(map(str, l)) for l in df['PREDECESSOR']]
+    df['SUCCESSOR'] = ['|'.join(map(str, l)) for l in df['SUCCESSOR']]
+    
+    df.to_csv(filename, index=False, header=True)
+
+
+def main():
+
+    # parse xml file
+    jobitems = parseXML('ctrlm.xml')
+
+    # store job info in a csv file
+    savetoCSV(jobitems, 'jobinfo.csv')
+    
+
+if __name__ == "__main__":
+
+    # calling main function
+    main()
