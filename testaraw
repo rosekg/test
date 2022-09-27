@@ -1,6 +1,61 @@
 import xml.etree.ElementTree as ET
 import pandas as pd
+from anytree import Node, RenderTree
 
+import warnings
+warnings.filterwarnings('ignore')
+
+def add_nodes(nodes, parent, child):
+    if parent not in nodes:
+        nodes[parent] = Node(parent)  
+    if child not in nodes:
+        nodes[child] = Node(child)
+    nodes[child].parent = nodes[parent]
+    
+def find_root(text, df):
+    roots = list(df[df["SUCCESSOR"] == text ]["JOBNAME"].unique())
+    temp = []
+
+    if len(roots) == 0:
+        temp = text
+    else:
+        temp = find_root(roots[0], df)
+        
+    return temp
+
+             
+def printTree(job_name, data):
+    nodes = {}  # store references to created nodes 
+
+    for parent, child in zip(data["JOBNAME"],data["SUCCESSOR"]):
+        add_nodes(nodes, parent, child)
+
+    if len(job_name) > 0:
+        root = find_root(job_name, data)
+        #print(root)
+        #print(nodes)
+        for pre, _, node in RenderTree(nodes[root]):
+            if node.name == job_name:
+                print('\t' +'\033[1m' + "%s%s" % (pre, node.name) + '\033[0m')
+            else:
+                print('\t' +"%s%s" % (pre, node.name))
+    else:
+        roots = list(data[~data["JOBNAME"].isin(data["SUCCESSOR"])]["JOBNAME"].unique())
+        for root in roots:         # you can skip this for roots[0], if there is no forest and just 1 tree
+            for pre, _, node in RenderTree(nodes[root]):
+                print('\t' +"%s%s" % (pre, node.name))
+                
+def printFullJobTree(job_name, df, dfFirst, dfLast):
+    print('\033[1m' + f"Control-M JobName {job_name} Tree" + '\033[0m' + '\n')
+    if ~dfFirst[dfFirst['SUCCESSOR'] == job_name].empty == -1:
+        printTree(job_name, dfFirst)
+
+    if ~dfLast[dfLast['SUCCESSOR'] == job_name].empty == -1:
+        printTree(job_name, dfLast)
+
+    if dfFirst[dfFirst['SUCCESSOR'] == job_name].empty & dfLast[dfLast['SUCCESSOR'] == job_name].empty:
+        printTree(job_name, dfFirst)
+        printTree(job_name, dfLast)
 
 def parseXML(xmlfile):
 
@@ -18,6 +73,22 @@ def parseXML(xmlfile):
             jobName = []
             jobName.append(jobAttr.get('JOBNAME'))
             
+            catName = []
+            descText = jobAttr.get('DESCRIPTION')
+            #TODO: Check the static value and update below list
+            catA_list = ['CAT-A', 'cat-a']
+            catB_list = ['CAT-B', 'cat-b']
+            for i in catA_list:
+                if descText.find(i) != -1:
+                    catName.append(i.upper())
+
+            for i in catB_list:
+                if descText.find(i) != -1:
+                    catName.append(i.upper())    
+                    
+            if len(catName) == 0 :
+                catName.append("None")            
+            
             preJobName = []
             if len(jobAttr.findall('INCOND')) == 0 :
                 preJobName.append("None")
@@ -27,12 +98,16 @@ def parseXML(xmlfile):
             
             ssJobName = []
             if len(jobAttr.findall('OUTCOND')) == 0 :
-                preJobName.append("None")
+                ssJobName.append("None")
             else:
                 for outcondAttr in jobAttr.findall('OUTCOND'):
-                    ssJobName.append(outcondAttr.get('NAME'))
+                    if outcondAttr.get('SIGN') == '+':
+                        ssJobName.append(outcondAttr.get('NAME'))
                         
-            jobList.append([jobName,preJobName,ssJobName])
+                if len(ssJobName) == 0 :
+                    ssJobName.append("None")
+                        
+            jobList.append([jobName,catName,preJobName,ssJobName])
 
     # return job list
     return jobList
@@ -41,21 +116,85 @@ def parseXML(xmlfile):
 def savetoCSV(jobitems, filename):
 
     df = pd.DataFrame(jobitems)
-    df.columns = ['JOBNAME','PREDECESSOR','SUCCESSOR']
+    df.columns = ['JOBNAME','CATEGORY','PREDECESSOR','SUCCESSOR']
     df['JOBNAME'] = ['|'.join(map(str, l)) for l in df['JOBNAME']]
+    df['CATEGORY'] = ['|'.join(map(str, l)) for l in df['CATEGORY']]
     df['PREDECESSOR'] = ['|'.join(map(str, l)) for l in df['PREDECESSOR']]
     df['SUCCESSOR'] = ['|'.join(map(str, l)) for l in df['SUCCESSOR']]
-    
+        
     df.to_csv(filename, index=False, header=True)
+    
+def checkJobCategory(df, job_name):
+    
+    for parent, child in zip(anonymous_job_dflist["JOBNAME_WCAT"],anonymous_job_dflist["SUCCESSOR_W_CAT"]):
+        if parent.split('(')[0] in job_name:
+            print('\n')
+            print('\033[1m' + 'ANONYMOUS Alert: ' + '\033[0m' + \
+                  "PREDECESSOR-JOB " + '\033[1m' + f'{parent}' + '\033[0m'  + \
+                  " and SUCCESSOR-JOB " + '\033[1m' + f'{child}' + '\033[0m'  + " are Different Category")
+            print('\n')
+    
+def getDF(jobitems):
+    df = pd.DataFrame(jobitems)
+    df.columns = ['JOBNAME','CATEGORY','PREDECESSOR','SUCCESSOR']
+    df = df.drop(columns=['PREDECESSOR'])
+    s=df.apply(lambda x: pd.Series(x['SUCCESSOR']),axis=1).stack().reset_index(level=1, drop=True)
+    s.name = 'SUCCESSOR'
+    df = df.drop('SUCCESSOR', axis=1).join(s)
+    df['JOBNAME'] = ['|'.join(map(str, l)) for l in df['JOBNAME']]
+    df['CATEGORY'] = ['|'.join(map(str, l)) for l in df['CATEGORY']]
+        
+    #get sucessor category
+    df['JOBNAME_WCAT'] = df[['JOBNAME', 'CATEGORY']].apply(lambda x: '('.join(x)+')', axis=1)
+    df.reset_index(inplace = True, drop = True)
+    
+    df2 = df.copy()
+
+    for x,y in df.groupby(["SUCCESSOR"] , as_index = False).median().items():
+        for i in y.values:
+            cat_value = df[df['JOBNAME'] == i]['CATEGORY'].unique()
+            index_position = df2.index[df2['SUCCESSOR'] == i]
+            for j in range(len(index_position)):
+                df2.loc[index_position[j], "SUCCESSOR_CAT"] = cat_value if len(cat_value) > 0 else ['None']
+
+    df2['SUCCESSOR_CAT'] = ['|'.join(map(str, l)) for l in df2['SUCCESSOR_CAT']]
+    df2['SUCCESSOR_W_CAT'] = df2[['SUCCESSOR', 'SUCCESSOR_CAT']].apply(lambda x: '('.join(x)+')', axis=1)
+    
+    anonymous_job_df = df2[ (df2['SUCCESSOR_CAT'].str.contains("None")==False) & (df2['CATEGORY'] != df2['SUCCESSOR_CAT'])]
+    
+    df = df2.copy()
+    
+    dfFirst = df.drop_duplicates('SUCCESSOR', keep="first")
+    dfFirst = dfFirst.drop(dfFirst[dfFirst.SUCCESSOR == 'None'].index, inplace=False)
+    #print("No Duplicates:", dfFirst)
+
+    dfLast = df.drop_duplicates('SUCCESSOR', keep="last")
+    dfLast = dfLast.drop(dfLast[dfLast.SUCCESSOR == 'None'].index, inplace=False)
+    #print("No Duplicates:", dfLast)
+    
+    return df, dfFirst, dfLast, anonymous_job_df
 
 
 def main():
+    
+    #input arg's
+    cntrl_file_name = 'ctrlm.xml'
+    tree_job_name = 'JOB3'
 
     # parse xml file
-    jobitems = parseXML('ctrlm.xml')
+    jobitems = parseXML(cntrl_file_name)
 
     # store job info in a csv file
-    savetoCSV(jobitems, 'jobinfo.csv')
+    #savetoCSV(jobitems, 'jobinfo.csv')
+    
+    #getListAsDF
+    df, dfFirst, dfLast, adf = getDF(jobitems)
+    
+    #print Full jobTree
+    printFullJobTree(tree_job_name, df, dfFirst, dfLast)
+    
+    #checkJobanonymousCat
+    checkJobCategory(adf, tree_job_name)
     
 
 if __name__ == "__main__":
