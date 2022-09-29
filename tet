@@ -1,0 +1,22 @@
+def add_nodes(G, parent, child):
+    G.add_node(parent)
+    G.add_edge(parent, child)
+
+    
+data = df.drop(df[df.SUCCESSOR_W_CAT == 'None(None)'].index, inplace=False)
+
+G = nx.DiGraph()
+
+for parent, child in zip(data["JOBNAME_WCAT"],data["SUCCESSOR_W_CAT"]):
+    add_nodes(G, parent, child)
+    
+G.add_edges_from(G.edges)
+
+#seed = 50,36,35
+pos = nx.spring_layout(G, k=0.3*1/np.sqrt(len(G.nodes())), iterations=20, seed=36)    
+plt.figure(1, figsize=(15, 10))
+nx.draw_networkx_nodes(G,pos,node_size=3000,node_color="None", linewidths=0)
+nx.draw_networkx_edges(G, pos, edgelist=G.edges(), edge_color='black', width=2, alpha=0.5)
+nx.draw_networkx_labels(G,pos, font_size=12, alpha=1, bbox=dict(facecolor='green', alpha=0.5, edgecolor='green', boxstyle='round'))
+
+plt.show()
