@@ -1,6 +1,13 @@
-def add_nodes(G, parent, child):
-    G.add_node(parent)
-    G.add_edge(parent, child)
+def topo_pos(G):
+    """Display in topological order, with simple offsetting for legibility"""
+    pos_dict = {}
+    for i, node_list in enumerate(nx.topological_generations(G)):
+        x_offset = len(node_list) / 2
+        y_offset = 0.1
+        for j, name in enumerate(node_list):
+            pos_dict[name] = (j - x_offset, -i + j * y_offset)
+
+    return pos_dict
 
     
 data = df.drop(df[df.SUCCESSOR_W_CAT == 'None(None)'].index, inplace=False)
@@ -12,11 +19,15 @@ for parent, child in zip(data["JOBNAME_WCAT"],data["SUCCESSOR_W_CAT"]):
     
 G.add_edges_from(G.edges)
 
-#seed = 50,36,35
-pos = nx.spring_layout(G, k=0.3*1/np.sqrt(len(G.nodes())), iterations=20, seed=36)    
+
+pos = topo_pos(G)
+
+# nx.draw(G, pos)
+# nx.draw_networkx_labels(G, pos, horizontalalignment="left")
+
 plt.figure(1, figsize=(15, 10))
 nx.draw_networkx_nodes(G,pos,node_size=3000,node_color="None", linewidths=0)
-nx.draw_networkx_edges(G, pos, edgelist=G.edges(), edge_color='black', width=2, alpha=0.5)
-nx.draw_networkx_labels(G,pos, font_size=12, alpha=1, bbox=dict(facecolor='green', alpha=0.5, edgecolor='green', boxstyle='round'))
+nx.draw_networkx_edges(G, pos, edgelist=G.edges(), edge_color='black', width=3, alpha=0.5)
+nx.draw_networkx_labels(G,pos, font_size=12, alpha=1, bbox=dict(facecolor='green', alpha=0.3, edgecolor='black', boxstyle='round'))
 
 plt.show()
