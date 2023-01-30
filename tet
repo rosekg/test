@@ -1,33 +1,23 @@
-def topo_pos(G):
-    """Display in topological order, with simple offsetting for legibility"""
-    pos_dict = {}
-    for i, node_list in enumerate(nx.topological_generations(G)):
-        x_offset = len(node_list) / 2
-        y_offset = 0.1
-        for j, name in enumerate(node_list):
-            pos_dict[name] = (j - x_offset, -i + j * y_offset)
+#!/bin/bash
 
-    return pos_dict
+# Define the maximum duration for a job to be considered long running
+MAX_DURATION=72000 # 72000 seconds = 20 hours
 
-    
-data = df.drop(df[df.SUCCESSOR_W_CAT == 'None(None)'].index, inplace=False)
+# Get the current timestamp in seconds
+current_time=$(date +%s)
 
-G = nx.DiGraph()
+# Get the list of running applications in the Yarn cluster
+yarn application -list | awk 'NR > 2 {print $1}' | while read app_id; do
+  # Get the start time of the application in seconds
+  start_time=$(yarn application -status $app_id | grep "Start-Time" | awk '{print $NF}')
+  start_time=$(date -d "$start_time" +%s)
 
-for parent, child in zip(data["JOBNAME_WCAT"],data["SUCCESSOR_W_CAT"]):
-    add_nodes(G, parent, child)
-    
-G.add_edges_from(G.edges)
+  # Calculate the duration of the application
+  duration=$((current_time - start_time))
 
-
-pos = topo_pos(G)
-
-# nx.draw(G, pos)
-# nx.draw_networkx_labels(G, pos, horizontalalignment="left")
-
-plt.figure(1, figsize=(15, 10))
-nx.draw_networkx_nodes(G,pos,node_size=3000,node_color="None", linewidths=0)
-nx.draw_networkx_edges(G, pos, edgelist=G.edges(), edge_color='black', width=3, alpha=0.5)
-nx.draw_networkx_labels(G,pos, font_size=12, alpha=1, bbox=dict(facecolor='green', alpha=0.3, edgecolor='black', boxstyle='round'))
-
-plt.show()
+  # Check if the duration of the application is greater than the maximum duration
+  if [[ $duration -gt $MAX_DURATION ]]; then
+    # Print the application ID and duration if it is a long running job
+    echo "Application ID: $app_id, Duration: $duration seconds"
+  fi
+done
