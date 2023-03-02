@@ -1,68 +1,9 @@
-#!/bin/bash
+# Find all files referenced by the main script
+referenced_files=$(grep -Eo '\./.+\.sh|\./.+\.conf|\./.+\.properties|\./.+\.csv' "$main_script")
 
-if [ $# -ne 2 ]; then
-    echo "Usage: $0 script1 script2"
-    exit 1
-fi
+# Write the referenced files to the output file
+echo "$referenced_files" > "$output_file"
 
-script1="$1"
-script2="$2"
-
-if [ ! -f "$script1" ]; then
-    echo "$script1 not found"
-    exit 1
-fi
-
-if [ ! -f "$script2" ]; then
-    echo "$script2 not found"
-    exit 1
-fi
-
-diff_output=$(diff -y --suppress-common-lines --new-line-format="%dn: %L" --old-line-format="%dn: %L" "$script1" "$script2")
-
-if [ -z "$diff_output" ]; then
-    echo "Scripts are identical"
-else
-    echo "Scripts differ:"
-    echo "$diff_output" | awk '{print NR": "$0}'
-fi
-
-# Compare any configuration or property files used by the scripts
-config_files1=$(grep -h "^ *source .*\.conf" "$script1" | awk '{print $2}' | sort | uniq)
-config_files2=$(grep -h "^ *source .*\.conf" "$script2" | awk '{print $2}' | sort | uniq)
-
-for file1 in $config_files1; do
-    if [ ! -f "$file1" ]; then
-        echo "Config file $file1 not found in $script1"
-    elif ! cmp -s "$file1" "$file1"; then
-        echo "Config file $file1 differs between $script1 and $script2"
-    fi
-done
-
-for file2 in $config_files2; do
-    if [ ! -f "$file2" ]; then
-        echo "Config file $file2 not found in $script2"
-    elif ! cmp -s "$file2" "$file2"; then
-        echo "Config file $file2 differs between $script1 and $script2"
-    fi
-done
-
-# Compare any subscripts used by the scripts
-subscripts1=$(grep -h "^ *\. .*\.sh" "$script1" | awk '{print $2}' | sort | uniq)
-subscripts2=$(grep -h "^ *\. .*\.sh" "$script2" | awk '{print $2}' | sort | uniq)
-
-for script1 in $subscripts1; do
-    if [ ! -f "$script1" ]; then
-        echo "Subscript $script1 not found in $script1"
-    elif ! cmp -s "$script1" "$script1"; then
-        echo "Subscript $script1 differs between $script1 and $script2"
-    fi
-done
-
-for script2 in $subscripts2; do
-    if [ ! -f "$script2" ]; then
-        echo "Subscript $script2 not found in $script2"
-    elif ! cmp -s "$script2" "$script2"; then
-        echo "Subscript $script2 differs between $script1 and $script2"
-    fi
-done
+# Print out the list of files that were written to the output file
+echo "The following files were found and written to $output_file:"
+echo "$referenced_files"
