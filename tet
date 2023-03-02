@@ -1,23 +1,68 @@
 #!/bin/bash
 
-# Define the maximum duration for a job to be considered long running
-MAX_DURATION=72000 # 72000 seconds = 20 hours
+if [ $# -ne 2 ]; then
+    echo "Usage: $0 script1 script2"
+    exit 1
+fi
 
-# Get the current timestamp in seconds
-current_time=$(date +%s)
+script1="$1"
+script2="$2"
 
-# Get the list of running applications in the Yarn cluster
-yarn application -list | awk 'NR > 2 {print $1}' | while read app_id; do
-  # Get the start time of the application in seconds
-  start_time=$(yarn application -status $app_id | grep "Start-Time" | awk '{print $NF}')
-  start_time=$(date -d "$start_time" +%s)
+if [ ! -f "$script1" ]; then
+    echo "$script1 not found"
+    exit 1
+fi
 
-  # Calculate the duration of the application
-  duration=$((current_time - start_time))
+if [ ! -f "$script2" ]; then
+    echo "$script2 not found"
+    exit 1
+fi
 
-  # Check if the duration of the application is greater than the maximum duration
-  if [[ $duration -gt $MAX_DURATION ]]; then
-    # Print the application ID and duration if it is a long running job
-    echo "Application ID: $app_id, Duration: $duration seconds"
-  fi
+diff_output=$(diff -y --suppress-common-lines --new-line-format="%dn: %L" --old-line-format="%dn: %L" "$script1" "$script2")
+
+if [ -z "$diff_output" ]; then
+    echo "Scripts are identical"
+else
+    echo "Scripts differ:"
+    echo "$diff_output" | awk '{print NR": "$0}'
+fi
+
+# Compare any configuration or property files used by the scripts
+config_files1=$(grep -h "^ *source .*\.conf" "$script1" | awk '{print $2}' | sort | uniq)
+config_files2=$(grep -h "^ *source .*\.conf" "$script2" | awk '{print $2}' | sort | uniq)
+
+for file1 in $config_files1; do
+    if [ ! -f "$file1" ]; then
+        echo "Config file $file1 not found in $script1"
+    elif ! cmp -s "$file1" "$file1"; then
+        echo "Config file $file1 differs between $script1 and $script2"
+    fi
+done
+
+for file2 in $config_files2; do
+    if [ ! -f "$file2" ]; then
+        echo "Config file $file2 not found in $script2"
+    elif ! cmp -s "$file2" "$file2"; then
+        echo "Config file $file2 differs between $script1 and $script2"
+    fi
+done
+
+# Compare any subscripts used by the scripts
+subscripts1=$(grep -h "^ *\. .*\.sh" "$script1" | awk '{print $2}' | sort | uniq)
+subscripts2=$(grep -h "^ *\. .*\.sh" "$script2" | awk '{print $2}' | sort | uniq)
+
+for script1 in $subscripts1; do
+    if [ ! -f "$script1" ]; then
+        echo "Subscript $script1 not found in $script1"
+    elif ! cmp -s "$script1" "$script1"; then
+        echo "Subscript $script1 differs between $script1 and $script2"
+    fi
+done
+
+for script2 in $subscripts2; do
+    if [ ! -f "$script2" ]; then
+        echo "Subscript $script2 not found in $script2"
+    elif ! cmp -s "$script2" "$script2"; then
+        echo "Subscript $script2 differs between $script1 and $script2"
+    fi
 done
