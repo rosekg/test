@@ -1,9 +1,113 @@
-# Find all files referenced by the main script
-referenced_files=$(grep -Eo '\./.+\.sh|\./.+\.conf|\./.+\.properties|\./.+\.csv' "$main_script")
+import json
+from datetime import datetime, timedelta
+from elasticsearch import Elasticsearch
 
-# Write the referenced files to the output file
-echo "$referenced_files" > "$output_file"
+# Connect to Elasticsearch cluster
+es = Elasticsearch([{'host': 'localhost', 'port': 9200}])
 
-# Print out the list of files that were written to the output file
-echo "The following files were found and written to $output_file:"
-echo "$referenced_files"
+
+# Read index names from config file
+config = configparser.ConfigParser()
+config.read('index_config.ini')
+index_names = config.get('Elasticsearch', 'index_names').split(',')
+
+# Read index names from text file
+with open('index_config.txt', 'r') as f:
+    index_names = [line.strip() for line in f.readlines()]
+
+# Define query for current day's data
+current_day = datetime.utcnow().strftime('%Y-%m-%d')
+query = {
+    "query": {
+        "bool": {
+            "must": [
+                {"range": {"timestamp": {"gte": current_day}}},
+                {"range": {"timestamp": {"lt": current_day + "T23:59:59Z"}}}
+            ]
+        }
+    }
+}
+
+for index_name in index_names:
+    # Read data from index
+    result = es.search(index=index_name, body=query)
+
+    if result['hits']['total']['value'] == 0:
+        # If no data for current day, write audit log
+        audit_log = {
+            "timestamp": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+            "message": "No data found for current day in index {}".format(index_name)
+        }
+        with open('audit_log.json', 'a') as f:
+            json.dump(audit_log, f)
+            f.write('\n')
+    else:
+        # If current day's data found, delete previous day's data
+        previous_day = (datetime.utcnow() - timedelta(days=1)).strftime('%Y-%m-%d')
+        query = {
+            "query": {
+                "bool": {
+                    "must_not": [
+                        {"range": {"timestamp": {"gte": current_day}}},
+                        {"range": {"timestamp": {"lt": current_day + "T23:59:59Z"}}}
+                    ]
+                }
+            }
+        }
+        result = es.delete_by_query(index=index_name, body=query)
+        print("Deleted {} documents from index {} for previous day".format(result['deleted'], index_name))
+
+
+
+#######################################
+from elasticsearch import Elasticsearch
+import configparser
+
+# Read the config file
+config = configparser.ConfigParser()
+config.read('config.ini')
+
+# Get the Elasticsearch username and password from the config file
+username = config.get('elasticsearch', 'es_user')
+password = config.get('elasticsearch', 'es_password')
+
+# Set up the Elasticsearch connection with the retrieved username and password
+es = Elasticsearch(http_auth=(username, password))
+
+# Test the Elasticsearch connection
+if es.ping():
+    print("Elasticsearch connection successful")
+else:
+    print("Elasticsearch connection failed")
+    
+# Set up the Elasticsearch connection with password authentication and multiple quorums
+try:
+    es = Elasticsearch(
+        nodes,
+        http_auth=(username, password),
+        timeout=30,
+        max_retries=3,
+        retry_on_timeout=True,
+        retry_on_status=(503,),
+        sniff_on_start=True,
+        sniff_on_connection_fail=True,
+        sniffer_timeout=60,
+        sniff_timeout=10,
+        sniff_threshold=5,
+        sniff_on_node_failure=True
+    )
+
+    # Check if the Elasticsearch connection is successful
+    if es.ping():
+        print("Elasticsearch connection successful")
+    else:
+        print("Elasticsearch connection failed")
+
+except AuthenticationException as auth_error:
+    print(f"Authentication failed: {auth_error}")
+except AuthorizationException as authz_error:
+    print(f"Authorization failed: {authz_error}")
+except ConnectionError as conn_error:
+    print(f"Connection failed: {conn_error}")
+except Exception as e:
+    print(f"Unexpected error: {e}")    
