@@ -1,1 +1,46 @@
-test
+# logger_config.yaml
+
+version: 1
+disable_existing_loggers: false
+formatters:
+    simple:
+        format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+handlers:
+    console:
+        class: logging.StreamHandler
+        level: INFO
+        formatter: simple
+        stream: ext://sys.stdout
+    file:
+        class: logging.handlers.TimedRotatingFileHandler
+        level: DEBUG
+        formatter: simple
+        filename: example.log
+        when: midnight
+        interval: 1
+        backupCount: 7
+loggers:
+    exampleLogger:
+        level: DEBUG
+        handlers: [console, file]
+        propagate: no
+
+
+
+import logging.config
+import yaml
+
+# Load the logger configuration from YAML file
+with open('logger_config.yaml', 'r') as f:
+    config = yaml.safe_load(f.read())
+logging.config.dictConfig(config)
+
+# Create a logger instance
+logger = logging.getLogger('exampleLogger')
+
+# Log some messages at different log levels
+logger.debug('This is a debug message')
+logger.info('This is an info message')
+logger.warning('This is a warning message')
+logger.error('This is an error message')
+logger.critical('This is a critical message')
