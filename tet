@@ -1,17 +1,1 @@
-from kafka import KafkaConsumer
 
-# Create a Kafka consumer instance
-consumer = KafkaConsumer(
-    'my-topic',          # Kafka topic to subscribe to
-    bootstrap_servers=['localhost:9092'],
-    auto_offset_reset='earliest',    # Start from earliest message
-    enable_auto_commit=True,         # Automatically commit offsets
-    group_id='my-group'              # Consumer group ID
-)
-
-# Loop through messages from the Kafka topic
-for message in consumer:
-    print(message.value.decode('utf-8'))
-
-# Close the Kafka consumer instance
-consumer.close()
