@@ -1,46 +1,17 @@
-# logger_config.yaml
+from kafka import KafkaConsumer
 
-version: 1
-disable_existing_loggers: false
-formatters:
-    simple:
-        format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-handlers:
-    console:
-        class: logging.StreamHandler
-        level: INFO
-        formatter: simple
-        stream: ext://sys.stdout
-    file:
-        class: logging.handlers.TimedRotatingFileHandler
-        level: DEBUG
-        formatter: simple
-        filename: example.log
-        when: midnight
-        interval: 1
-        backupCount: 7
-loggers:
-    exampleLogger:
-        level: DEBUG
-        handlers: [console, file]
-        propagate: no
+# Create a Kafka consumer instance
+consumer = KafkaConsumer(
+    'my-topic',          # Kafka topic to subscribe to
+    bootstrap_servers=['localhost:9092'],
+    auto_offset_reset='earliest',    # Start from earliest message
+    enable_auto_commit=True,         # Automatically commit offsets
+    group_id='my-group'              # Consumer group ID
+)
 
+# Loop through messages from the Kafka topic
+for message in consumer:
+    print(message.value.decode('utf-8'))
 
-
-import logging.config
-import yaml
-
-# Load the logger configuration from YAML file
-with open('logger_config.yaml', 'r') as f:
-    config = yaml.safe_load(f.read())
-logging.config.dictConfig(config)
-
-# Create a logger instance
-logger = logging.getLogger('exampleLogger')
-
-# Log some messages at different log levels
-logger.debug('This is a debug message')
-logger.info('This is an info message')
-logger.warning('This is a warning message')
-logger.error('This is an error message')
-logger.critical('This is a critical message')
+# Close the Kafka consumer instance
+consumer.close()
