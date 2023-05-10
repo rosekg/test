@@ -1,1 +1,25 @@
 
+import json
+
+# create an empty list to store JSON objects
+json_list = []
+
+# get user input
+name = input("Enter your name: ")
+age = input("Enter your age: ")
+email = input("Enter your email: ")
+
+# create a dictionary with user input
+user_dict = {
+    "name": name,
+    "age": age,
+    "email": email
+}
+
+# remove any key-value pairs where the value is empty
+user_dict = {k: v for k, v in user_dict.items() if v}
+
+# append the resulting JSON object to the list
+json_list.append(json.dumps(user_dict))
+
+print(json_list)
