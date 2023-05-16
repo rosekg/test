@@ -1,25 +1,33 @@
-
-import json
-
-# create an empty list to store JSON objects
-json_list = []
-
-# get user input
-name = input("Enter your name: ")
-age = input("Enter your age: ")
-email = input("Enter your email: ")
-
-# create a dictionary with user input
-user_dict = {
-    "name": name,
-    "age": age,
-    "email": email
+input {
+  kafka {
+    bootstrap_servers => "kafka-broker1:9092,kafka-broker2:9092"  # Replace with your Kafka broker addresses
+    topics => ["your-kafka-topic"]
+    group_id => "logstash-consumer-group"
+  }
 }
 
-# remove any key-value pairs where the value is empty
-user_dict = {k: v for k, v in user_dict.items() if v}
+filter {
+  ruby {
+    code => '
+      require "roo"
+      require "json"
+      header = ["header1", "header2", "header3"]  # Replace with your XLSX header column names
+      excel = Roo::Excelx.new(StringIO.new(event.get("message")))
+      sheet = excel.sheet(0)  # Assuming the data is in the first sheet
 
-# append the resulting JSON object to the list
-json_list.append(json.dumps(user_dict))
+      if sheet.row(1) != header
+        event.cancel
+      else
+        data = sheet.parse(header)
+        event.set("parsed_data", data.to_json)
+      end
+    '
+  }
+}
 
-print(json_list)
+output {
+  elasticsearch {
+    hosts => ["http://localhost:9200"]  # Replace with your Elasticsearch host
+    index => "your-elasticsearch-index"
+  }
+}
