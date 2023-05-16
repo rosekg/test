@@ -1,24 +1,40 @@
-filter {
-  ruby {
-    code => '
-      require "roo"
-      require "json"
+HIve:
 
-      header = ["header1", "header2", "header3"]  # Replace with your XLSX header column names
-      excel = Roo::Excelx.new(StringIO.new(event.get("message")))
-      sheet = excel.sheet(0)  # Assuming the data is in the first sheet
+--> what is different b/w partition and bucketing? explain with example?
+		partition  - to split the large table into smaller tables based on the values of a column(one partition for each distinct values)
+			CREATE TABLE zipcodes( RecordNumber int, Country string, City string, Zipcode int) PARTITIONED BY(state string) ROW FORMAT DELIMITED FIELDS TERMINATED BY ',';
+		bucketing - technique to divide the data in a manageable form (you can specify how many buckets you want).
+			CREATE TABLE zipcodes( RecordNumber int, Country string, City string, Zipcode int) PARTITIONED BY(state string) CLUSTERED BY Zipcode INTO 10 BUCKETS ROW FORMAT DELIMITED FIELDS TERMINATED BY ',';
 
-      if sheet.row(1) != header || sheet.last_row - 1 != sheet.drop(1).count || !sheet.drop(1).all? { |row| row.count == header.count }
-        event.cancel
-      else
-        data = []
-        sheet.drop(1).each_row_streaming(pad_cells: true) do |row|
-          values = row.map { |cell| cell.value }
-          data << Hash[header.zip(values)]
-        end
+--> how to drop a single partition of an external table?
+		-remove hdfs file, alter table tablName drop partition(ods=2021), msck repair table tableName
 
-        event.set("parsed_data", data.to_json)
-      end
-    '
-  }
-}
+--> what aer the different storage type in hive (create statement )? what is the best file format?
+		stored as textfile, orc, parquet,avro, sequence file etc..
+		heavy read best - parquet , heavy write best - avro , ORC for space less purpose.
+
+--> what is differenet optimization technics that can be applied to improve hive query performace ?
+		https://www.linkedin.com/pulse/performance-tuning-hive-rohit-nimmala
+		Hive Execution Engine - Tez, Spark engine. SET hive.execution.engine=tez; SET hive.execution.engine=spark;
+		File Format - ORC, AVRO, Parquet.
+		Partitioning and Bucketing
+		Optimization on JOIN/Avoiding unnecessary JOINs
+		Vectorization - set hive.vectorized.execution.enabled = true;If vectorization is set to true, it allows Hive to process a batch of rows together instead of processing one row at a time.
+		Compression - COdec - snappy 
+		Limiting the Data - whule query use WHERE clause
+
+
+
+Spark:
+
+How spark will works internally once spark job submitted?
+What is shuffle partitions, when to increase n decrease n default value?
+RDD vs DF VS DS?
+Just tell me few Spark Optimization techniques?
+Spark job failed with memory overload exception, what would be the reason or possiblities to casue that issue?
+I have spark job , which is running more than 1hr, which is actualy should complete 10mins. , how you will analysis the issue here?
+What is data skewness?
+
+Python:
+
+
