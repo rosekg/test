@@ -1,33 +1,24 @@
-input {
-  kafka {
-    bootstrap_servers => "kafka-broker1:9092,kafka-broker2:9092"  # Replace with your Kafka broker addresses
-    topics => ["your-kafka-topic"]
-    group_id => "logstash-consumer-group"
-  }
-}
-
 filter {
   ruby {
     code => '
       require "roo"
       require "json"
+
       header = ["header1", "header2", "header3"]  # Replace with your XLSX header column names
       excel = Roo::Excelx.new(StringIO.new(event.get("message")))
       sheet = excel.sheet(0)  # Assuming the data is in the first sheet
 
-      if sheet.row(1) != header
+      if sheet.row(1) != header || sheet.last_row - 1 != sheet.drop(1).count || !sheet.drop(1).all? { |row| row.count == header.count }
         event.cancel
       else
-        data = sheet.parse(header)
+        data = []
+        sheet.drop(1).each_row_streaming(pad_cells: true) do |row|
+          values = row.map { |cell| cell.value }
+          data << Hash[header.zip(values)]
+        end
+
         event.set("parsed_data", data.to_json)
       end
     '
-  }
-}
-
-output {
-  elasticsearch {
-    hosts => ["http://localhost:9200"]  # Replace with your Elasticsearch host
-    index => "your-elasticsearch-index"
   }
 }
