@@ -1,40 +1,45 @@
-HIve:
+Objective:
+The objective of this project is to develop a Python utility that checks a given Elastic index file, processes it one by one, and deletes the previous day's records from the Elastic index if the current day's data is found in that index. Additionally, the utility will write the index delete audit information to an output Elastic audit index and update the job status in another Elastic audit index for monitoring purposes.
 
---> what is different b/w partition and bucketing? explain with example?
-		partition  - to split the large table into smaller tables based on the values of a column(one partition for each distinct values)
-			CREATE TABLE zipcodes( RecordNumber int, Country string, City string, Zipcode int) PARTITIONED BY(state string) ROW FORMAT DELIMITED FIELDS TERMINATED BY ',';
-		bucketing - technique to divide the data in a manageable form (you can specify how many buckets you want).
-			CREATE TABLE zipcodes( RecordNumber int, Country string, City string, Zipcode int) PARTITIONED BY(state string) CLUSTERED BY Zipcode INTO 10 BUCKETS ROW FORMAT DELIMITED FIELDS TERMINATED BY ',';
+Overview:
+The Python utility is designed to automate the process of managing data in an Elastic index. It performs the following steps:
 
---> how to drop a single partition of an external table?
-		-remove hdfs file, alter table tablName drop partition(ods=2021), msck repair table tableName
+Reads the specified Elastic index file.
+Processes each record in the index file.
+Checks if the current day's data exists in the index.
+If the current day's data is found, deletes the previous day's records from the index.
+Writes the index delete audit information to an output Elastic audit index.
+Updates the job status in another Elastic audit index for monitoring purposes.
+Data Flow:
 
---> what aer the different storage type in hive (create statement )? what is the best file format?
-		stored as textfile, orc, parquet,avro, sequence file etc..
-		heavy read best - parquet , heavy write best - avro , ORC for space less purpose.
+Read the Elastic index file.
+Iterate over each record in the index file.
+Check if the current day's data is present in the Elastic index.
+If the current day's data is found, delete the previous day's records from the index.
+Generate audit information for the deletion operation.
+Write the audit information to the output Elastic audit index.
+Update the job status in the monitoring Elastic audit index.
+Input:
 
---> what is differenet optimization technics that can be applied to improve hive query performace ?
-		https://www.linkedin.com/pulse/performance-tuning-hive-rohit-nimmala
-		Hive Execution Engine - Tez, Spark engine. SET hive.execution.engine=tez; SET hive.execution.engine=spark;
-		File Format - ORC, AVRO, Parquet.
-		Partitioning and Bucketing
-		Optimization on JOIN/Avoiding unnecessary JOINs
-		Vectorization - set hive.vectorized.execution.enabled = true;If vectorization is set to true, it allows Hive to process a batch of rows together instead of processing one row at a time.
-		Compression - COdec - snappy 
-		Limiting the Data - whule query use WHERE clause
+Elastic index file: The utility takes a specified Elastic index file as input. This file contains the records that need to be processed.
+Output:
 
+Deleted records: The utility deletes the previous day's records from the Elastic index if the current day's data is found.
+Audit information: The utility writes the index delete audit information to an output Elastic audit index.
+Job status: The utility updates the job status in another Elastic audit index for monitoring purposes.
+Tools and Functionality Used:
 
+Python: The utility is developed using the Python programming language.
+ElasticSearch: The utility interacts with the ElasticSearch database to read the index file, perform deletion operations, and write audit information.
+ElasticSearch-Py: A Python library for interacting with ElasticSearch, used to establish a connection to the ElasticSearch database and perform CRUD operations.
+Date and time functions: Python's built-in date and time functions are used to compare and manipulate dates for identifying the current and previous day's data.
+Logging: The utility may utilize Python's logging module to log the execution details and any errors encountered during the process.
+Functionality:
 
-Spark:
-
-How spark will works internally once spark job submitted?
-What is shuffle partitions, when to increase n decrease n default value?
-RDD vs DF VS DS?
-Just tell me few Spark Optimization techniques?
-Spark job failed with memory overload exception, what would be the reason or possiblities to casue that issue?
-I have spark job , which is running more than 1hr, which is actualy should complete 10mins. , how you will analysis the issue here?
-What is data skewness?
-
-Python:
-
-
+Read Elastic index file: The utility reads the specified Elastic index file.
+Process records: It processes each record in the index file.
+Check for current day's data: It checks if the current day's data exists in the Elastic index.
+Delete previous day's records: If the current day's data is found, the utility deletes the previous day's records from the index.
+Write index delete audit information: The utility generates audit information for the deletion operation and writes it to the output Elastic audit index.
+Update job status: The utility updates the job status in the monitoring Elastic audit index to reflect the current state of the execution.
+Note: The implementation details, specific libraries used, and error handling mechanisms may vary based on the requirements and preferences of the developer.
