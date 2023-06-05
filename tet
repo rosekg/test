@@ -1,42 +1,26 @@
-Objective:
-The objective of this project is to develop a Python utility that checks a given Elastic index file, processes it one by one, and deletes the previous day's records from the Elastic index if the current day's data is found in that index. Additionally, the utility will write the index delete audit information to an output Kafka topic. Logstash will read the Kafka topic and write the audit messages into an Elastic audit index. The Python utility will also write the job status to a common audit log index for monitoring purposes.
+from elasticsearch import Elasticsearch
+from elasticsearch_sql import SQLClient
 
-Overview:
-The project involves multiple components working together to manage data in an Elastic index and provide auditing and monitoring capabilities. The components include the Python utility, Kafka, Logstash, and ElasticSearch. The overall workflow is as follows:
-1. The Python utility checks the given Elastic index file, processes the records one by one, and deletes the previous day's records if the current day's data is found.
-2. The utility generates index delete audit information and writes it to an output Kafka topic.
-3. Logstash reads the messages from the Kafka topic and writes them into an Elastic audit index.
-4. The Python utility also writes the job status to a common audit log index for monitoring purposes.
+# Connect to Elasticsearch
+es = Elasticsearch(hosts=['localhost'])
 
-Data Flow:
-1. The Python utility reads the specified Elastic index file.
-2. For each record in the index file, it checks if the current day's data exists in the Elastic index.
-3. If the current day's data is found, the utility deletes the previous day's records from the index.
-4. The utility generates index delete audit information and publishes it to an output Kafka topic.
-5. Logstash consumes messages from the Kafka topic.
-6. Logstash processes each message and writes the audit messages to an Elastic audit index.
-7. The Python utility updates the job status and writes it to a common audit log index for monitoring.
+# Create an SQL client
+sql_client = SQLClient(es)
 
-Input:
-1. Elastic index file: The utility takes a specified Elastic index file as input. This file contains the records that need to be processed.
+# Execute an SQL query to select multiple columns, filter on date, and get distinct values
+sql_query = """
+SELECT ColA, DISTINCT(ColB)
+FROM your_index
+WHERE ColA >= '2021-01-01' AND ColA <= '2021-12-31'
+GROUP BY ColA, ColB
+"""
+response = sql_client.execute(sql_query)
 
-Output:
-1. Deleted records: The utility deletes the previous day's records from the Elastic index if the current day's data is found.
-2. Index delete audit information: The utility publishes audit information to an output Kafka topic.
-3. Audit messages: Logstash reads the audit messages from the Kafka topic and writes them to an Elastic audit index.
-4. Job status: The Python utility updates the job status and writes it to a common audit log index for monitoring.
+# Process the results
+for hit in response:
+    colA = hit['ColA']
+    colB = hit['ColB']
+    # Do something with the retrieved columns
 
-Tools and Functionality Used:
-1. Python: The utility is developed using the Python programming language.
-2. ElasticSearch: The utility interacts with the ElasticSearch database to read the index file, perform deletion operations, and write the job status.
-3. ElasticSearch-Py: A Python library for interacting with ElasticSearch, used to establish a connection to the ElasticSearch database and perform CRUD operations.
-4. Kafka: A distributed streaming platform used to publish and subscribe to messages. The utility uses Kafka to publish index delete audit information.
-5. Logstash: An open-source data processing pipeline that collects, processes, and sends data to various outputs. Logstash is used to consume messages from the Kafka topic and write them to an Elastic audit index.
-
-Functionality:
-1. Read Elastic index file: The utility reads the specified Elastic index file.
-2. Process records: It processes each record in the index file.
-3. Check for current day's data: It checks if the current day's data exists in the Elastic index.
-4. Delete previous day's records: If the current day's data is found, the utility deletes the previous day's records from the index.
-5. Write index delete audit information: The utility generates audit information for the deletion operation and publishes it to an output Kafka topic.
-6. Logstash processing: Logstash consumes
+# Close the SQL client
+sql_client.close()
