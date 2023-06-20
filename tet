@@ -1,7 +1,9 @@
 import requests
+import csv
+from bs4 import BeautifulSoup
 
 # Rundeck API endpoint and authentication details
-rundeck_url = "http://your-rundeck-instance/api/14"
+rundeck_url = "http://your-rundeck-instance/api/32"
 api_token = "your-api-token"
 
 # Headers for API requests
@@ -19,23 +21,32 @@ def get_job_info():
         response = requests.get(job_list_url, headers=headers)
         if response.status_code == 200:
             job_data = response.json()
-            for job in job_data:
-                job_id = job["id"]
-                job_name = job["name"]
-                job_run_time = job["averageDuration"]
-                job_node = job["defaultTab"]["nodes"]
-                job_command = job["defaultTab"]["exec"]
+            job_info = []
 
-                print(f"Job ID: {job_id}")
-                print(f"Job Name: {job_name}")
-                print(f"Run Time: {job_run_time} seconds")
-                print(f"Node: {job_node}")
-                print(f"Command: {job_command}")
-                print("---------")
+            for job in job_data:
+                permalink_url = job["permalink"]
+                job_response = requests.get(permalink_url, headers=headers)
+                job_soup = BeautifulSoup(job_response.text, "html.parser")
+                job_name = job_soup.select_one(".job-header .title").text.strip()
+                job_description = job_soup.select_one(".job-description").text.strip()
+                job_run_time = job_soup.select_one(".job-metric .duration").text.strip()
+                job_nodes = job_soup.select(".job-node-name")
+
+                nodes = [node.text.strip() for node in job_nodes]
+
+                job_info.append([job_name, job_description, job_run_time, nodes])
+
+            # Save job info as CSV
+            with open("job_info.csv", mode="w", newline="") as file:
+                writer = csv.writer(file)
+                writer.writerow(["Job Name", "Job Description", "Run Time", "Nodes"])
+                writer.writerows(job_info)
+
+            print("Job information saved as job_info.csv")
         else:
             print(f"Error: {response.status_code} - {response.text}")
     except requests.exceptions.RequestException as e:
         print(f"Error: {e}")
 
-# Call the function to retrieve job information
+# Call the function to retrieve job information and save as CSV
 get_job_info()
