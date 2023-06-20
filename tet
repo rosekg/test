@@ -1,6 +1,6 @@
 import requests
 import csv
-from bs4 import BeautifulSoup
+import xml.etree.ElementTree as ET
 
 # Rundeck API endpoint and authentication details
 rundeck_url = "http://your-rundeck-instance/api/32"
@@ -20,18 +20,19 @@ def get_job_info():
     try:
         response = requests.get(job_list_url, headers=headers)
         if response.status_code == 200:
-            job_data = response.json()
+            job_data = response.text
+
+            # Parse XML data
+            root = ET.fromstring(job_data)
             job_info = []
 
-            for job in job_data:
-                permalink_url = job["permalink"]
-                job_response = requests.get(permalink_url, headers=headers)
-                job_soup = BeautifulSoup(job_response.text, "html.parser")
-                job_name = job_soup.select_one(".job-header .title").text.strip()
-                job_description = job_soup.select_one(".job-description").text.strip()
-                job_run_time = job_soup.select_one(".job-metric .duration").text.strip()
-                job_nodes = job_soup.select(".job-node-name")
+            for job in root.findall(".//job"):
+                job_name = job.find("name").text.strip()
+                job_description = job.find("description").text.strip()
+                job_run_time = job.find("averageDuration").text.strip()
 
+                # Get node names
+                job_nodes = job.findall(".//node")
                 nodes = [node.text.strip() for node in job_nodes]
 
                 job_info.append([job_name, job_description, job_run_time, nodes])
