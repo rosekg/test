@@ -1,1 +1,41 @@
-test
+import requests
+
+# Rundeck API endpoint and authentication details
+rundeck_url = "http://your-rundeck-instance/api/14"
+api_token = "your-api-token"
+
+# Headers for API requests
+headers = {
+    "Content-Type": "application/json",
+    "X-Rundeck-Auth-Token": api_token
+}
+
+# Function to retrieve job information from Rundeck
+def get_job_info():
+    # API endpoint for job listing
+    job_list_url = f"{rundeck_url}/projects/YOUR_PROJECT_NAME/jobs"
+
+    try:
+        response = requests.get(job_list_url, headers=headers)
+        if response.status_code == 200:
+            job_data = response.json()
+            for job in job_data:
+                job_id = job["id"]
+                job_name = job["name"]
+                job_run_time = job["averageDuration"]
+                job_node = job["defaultTab"]["nodes"]
+                job_command = job["defaultTab"]["exec"]
+
+                print(f"Job ID: {job_id}")
+                print(f"Job Name: {job_name}")
+                print(f"Run Time: {job_run_time} seconds")
+                print(f"Node: {job_node}")
+                print(f"Command: {job_command}")
+                print("---------")
+        else:
+            print(f"Error: {response.status_code} - {response.text}")
+    except requests.exceptions.RequestException as e:
+        print(f"Error: {e}")
+
+# Call the function to retrieve job information
+get_job_info()
