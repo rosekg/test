@@ -1,64 +1,35 @@
 filters
-| essql 
-  query="SELECT * FROM your_index_name"
-| container
-  align="center"
-  expression={containerExpression}
-
-
-
-filters
-| mapColumn "expanded" 
-  fn={getCellState}
-  as="cellState"
-| ply by="column"
-  fn={getRowState}
-  as="rowState"
-| render
-
-
-// Custom function to handle cell state
-function getCellState(cellValue) {
-  return {
-    value: cellValue,
-    expanded: false, // Initial state is collapsed
-  };
-}
-
-// Custom function to handle row state
-function getRowState(row) {
-  return {
-    cells: row.column.map((cellValue) => getCellState(cellValue)),
-    expanded: false, // Initial state is collapsed
-  };
-}
-
-// Custom function to toggle row expansion/collapse
-function toggleRowState(rowState) {
-  rowState.expanded = !rowState.expanded;
-  return rowState;
-}
-
-// Custom container expression
-function containerExpression(state) {
-  const { data } = state;
-
-  return (
-    <table>
-      {data.map((row) => {
-        const rowState = toggleRowState(row.rowState);
-
-        return (
-          <tr>
-            <td onClick={toggleRowState.bind(null, rowState)}>
-              {rowState.expanded ? "-" : "+"}
-            </td>
-            {rowState.cells.map((cell) => (
-              <td>{cell.expanded ? cell.value : "-"}</td>
-            ))}
-          </tr>
-        );
-      })}
-    </table>
-  );
-}
+| essql query="SELECT * FROM your_index_name"
+| table
+| css
+  "
+  .expandable-row .expand-icon:before {
+    content: '+';
+  }
+  
+  .expandable-row.expanded .expand-icon:before {
+    content: '-';
+  }
+  
+  .expandable-row.expanded .details-row {
+    display: table-row;
+  }
+  
+  .expandable-row .details-row {
+    display: none;
+  }
+  "
+| html
+  "
+  <table>
+    <tr class='expandable-row' data-ks-toggle-row>
+      <td class='expand-icon' data-ks-toggle-row-icon></td>
+      <td>{{column1}}</td>
+      <td>{{column2}}</td>
+    </tr>
+    <tr class='details-row' data-ks-toggle-row-details>
+      <td></td>
+      <td colspan='2'>{{column3}}</td>
+    </tr>
+  </table>
+  "
