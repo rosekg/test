@@ -19,17 +19,11 @@ filters
     display: none;
   }
   "
-| html
+| markdown
   "
-  <table>
-    <tr class='expandable-row' data-ks-toggle-row>
-      <td class='expand-icon' data-ks-toggle-row-icon></td>
-      <td>{{column1}}</td>
-      <td>{{column2}}</td>
-    </tr>
-    <tr class='details-row' data-ks-toggle-row-details>
-      <td></td>
-      <td colspan='2'>{{column3}}</td>
-    </tr>
-  </table>
+  | {{column1}} | {{column2}} |
+  | ------------ | ------------ |
+  {{#each this}}
+  | <div class='expandable-row' data-ks-toggle-row><span class='expand-icon'></span></div> | <div class='details-row' data-ks-toggle-row-details>{{column3}}</div> |
+  {{/each}}
   "
