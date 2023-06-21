@@ -1,11 +1,5 @@
-.canvasRenderEl table tr.sub-row {
-  display: none;
-}
-
-.canvasRenderEl table tr.root-row {
-  cursor: pointer;
-}
-
-.canvasRenderEl table tr.root-row.expanded + tr.sub-row {
-  display: table-row;
-}
+var_set "val1" value={essql query="SELECT 1+3 AS foo" | getCell "foo"}
+| var_set "val2" value={essql query="SELECT 1+6 AS bar" | getCell "bar"}
+| var_set "result" value={math {string "multiply( " {var "val1"} ", " {var "val2"} " )"}}
+| markdown "Test: " {var "result"}
+| render
