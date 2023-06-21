@@ -1,8 +1,11 @@
-display: flex;
-  align-items: center;
-  padding: 10px;
-  height: 50px;
-  background-color: #e4e4e4;
-  border:2px solid #ec0028;
-border-radius: 20px;
-visibility:visible;
+.canvasRenderEl table tr.sub-row {
+  display: none;
+}
+
+.canvasRenderEl table tr.root-row {
+  cursor: pointer;
+}
+
+.canvasRenderEl table tr.root-row.expanded + tr.sub-row {
+  display: table-row;
+}
