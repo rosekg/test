@@ -1,29 +1,8 @@
-filters
-| essql query="SELECT * FROM your_index_name"
-| table
-| css
-  "
-  .expandable-row .expand-icon:before {
-    content: '+';
-  }
-  
-  .expandable-row.expanded .expand-icon:before {
-    content: '-';
-  }
-  
-  .expandable-row.expanded .details-row {
-    display: table-row;
-  }
-  
-  .expandable-row .details-row {
-    display: none;
-  }
-  "
-| markdown
-  "
-  | {{column1}} | {{column2}} |
-  | ------------ | ------------ |
-  {{#each this}}
-  | <div class='expandable-row' data-ks-toggle-row><span class='expand-icon'></span></div> | <div class='details-row' data-ks-toggle-row-details>{{column3}}</div> |
-  {{/each}}
-  "
+display: flex;
+  align-items: center;
+  padding: 10px;
+  height: 50px;
+  background-color: #e4e4e4;
+  border:2px solid #ec0028;
+border-radius: 20px;
+visibility:visible;
