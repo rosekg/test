@@ -1,5 +1,14 @@
-var_set "val1" value={essql query="SELECT 1+3 AS foo" | getCell "foo"}
-| var_set "val2" value={essql query="SELECT 1+6 AS bar" | getCell "bar"}
-| var_set "result" value={math {string "multiply( " {var "val1"} ", " {var "val2"} " )"}}
-| markdown "Test: " {var "result"}
-| render
+.canvasDropdownFilter__select {
+ font-family: sans-serif;
+ color: #000000;
+ font-size: 1.4em;
+ font-weight: bold;
+ background: #FBBD00;
+ border-radius: 12px;
+ padding: 10px;
+}
+
+.canvasDropdownFilter__select:hover {
+  color: #ffffff;
+  background: #423300;
+}
