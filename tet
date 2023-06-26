@@ -1,1 +1,14 @@
-[![Refresh](data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgdmlld0JveD0iMCAwIDMyIDMyIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIyMCIgc3R5bGU9ImZpbGw6cmdiYSgyNTUsIDI1NSwgMjU1KSIgLz4KPC9zdmc+)](javascript:(function() { document.querySelector('.canvasDropdownFilter__select').setAttribute('aria-selected', 'false'); })();)
+import pandas as pd
+
+# Read the first Excel file
+df1 = pd.read_excel('file1.xlsx')
+
+# Read the second Excel file
+df2 = pd.read_excel('file2.xlsx')
+
+# Compare df1 and df2 and get unmatched rows from df1
+df_unmatched = df1.merge(df2, indicator=True, how='left').loc[lambda x: x['_merge'] == 'left_only'].drop(columns='_merge')
+
+# Display unmatched rows from df1
+print("Unmatched rows in df1:")
+print(df_unmatched)
