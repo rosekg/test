@@ -1,1 +1,1 @@
-converted_text=$(echo "$text" | sed -e "s/\([^=]*\)=\([^,]*\)/\1='\2'/g")
+hadoop fs -ls /path/to/partitions/ | grep 'category=' | awk -F'/' '{print $NF}' | sort -t= -k2,2 -k4,4 -r | uniq -f1 --all-repeated=separate
