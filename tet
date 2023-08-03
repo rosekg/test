@@ -1,18 +1,3 @@
-#!/bin/bash
+kafka-topics --zookeeper <zookeeper_host>:<zookeeper_port> --create --topic <topic_name> --partitions <num_partitions> --replication-factor <replication_factor>
 
-# Function to find the latest partition
-find_latest_partition() {
-    local dir="$1"
-    local latest_partition=$(hadoop fs -ls "$dir" | grep -Eo '[^ ]+$' | sort -k2,2 -r | head -n 1)
-
-    echo "Latest partition in $dir: $latest_partition"
-
-    local sub_dirs=$(echo "$latest_partition" | awk -F '/' '{for (i=1; i<=NF; i++) print $i}' | grep '=')
-    for sub_dir in $sub_dirs; do
-        find_latest_partition "$dir/$sub_dir"
-    done
-}
-
-# Start the traversal from the root directory
-root_directory="/path/to/root/directory"
-find_latest_partition "$root_directory"
+kafka-topics --bootstrap-server localhost:9092 --create --topic my-topic --partitions 3 --replication-factor 2
