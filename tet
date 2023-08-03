@@ -1,3 +1,44 @@
-kafka-topics --zookeeper <zookeeper_host>:<zookeeper_port> --create --topic <topic_name> --partitions <num_partitions> --replication-factor <replication_factor>
+in0ut:
+{
+  "records": [
+    {
+      "source": "A",
+      "other_field": "value1"
+    },
+    {
+      "source": ["B", "C"],
+      "other_field": "value2"
+    },
+    {
+      "source": "BC",
+      "other_field": "value3"
+    },
+    {
+      "source": "C",
+      "other_field": "value4"
+    }
+  ]
+}
 
-kafka-topics --bootstrap-server localhost:9092 --create --topic my-topic --partitions 3 --replication-factor 2
+
+
+import json
+import pandas as pd
+
+# Step 1: Read the nested JSON file and load it into a dictionary
+with open('data.json', 'r') as file:
+    data = json.load(file)
+
+# Step 2: Create a DataFrame from the loaded JSON data
+df = pd.DataFrame(data['records'])
+
+# Step 3: Read tier values from config.csv into a dictionary
+tier_df = pd.read_csv('config.csv')
+tier_dict = dict(zip(tier_df['source'], tier_df['tier']))
+
+# Step 4: Map source field values to their corresponding tier values and format the source value
+df['source'] = df['source'].apply(lambda source: "".join(source) if isinstance(source, list) else source)
+df['tier'] = df['source'].apply(lambda source: tier_dict.get(source))
+
+# Display the resulting DataFrame
+print(df)
