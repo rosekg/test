@@ -1,44 +1,40 @@
-in0ut:
-{
-  "records": [
-    {
-      "source": "A",
-      "other_field": "value1"
-    },
-    {
-      "source": ["B", "C"],
-      "other_field": "value2"
-    },
-    {
-      "source": "BC",
-      "other_field": "value3"
-    },
-    {
-      "source": "C",
-      "other_field": "value4"
+curl -X POST "http://localhost:9200/your_index_name/_search" -H "Content-Type: application/json" -d '{
+  "query": {
+    "bool": {
+      "should": [
+        {
+          "bool": {
+            "must": [
+              {
+                "terms": {
+                  "cola": ["ABC", "CCC", "DDD"]
+                }
+              },
+              {
+                "match": {
+                  "COLC": "YES"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "bool": {
+            "must": [
+              {
+                "terms": {
+                  "cola": ["BBB", "DDD", "EEE"]
+                }
+              },
+              {
+                "match": {
+                  "COLD": "YES"
+                }
+              }
+            ]
+          }
+        }
+      ]
     }
-  ]
-}
-
-
-
-import json
-import pandas as pd
-
-# Step 1: Read the nested JSON file and load it into a dictionary
-with open('data.json', 'r') as file:
-    data = json.load(file)
-
-# Step 2: Create a DataFrame from the loaded JSON data
-df = pd.DataFrame(data['records'])
-
-# Step 3: Read tier values from config.csv into a dictionary
-tier_df = pd.read_csv('config.csv')
-tier_dict = dict(zip(tier_df['source'], tier_df['tier']))
-
-# Step 4: Map source field values to their corresponding tier values and format the source value
-df['source'] = df['source'].apply(lambda source: "".join(source) if isinstance(source, list) else source)
-df['tier'] = df['source'].apply(lambda source: tier_dict.get(source))
-
-# Display the resulting DataFrame
-print(df)
+  }
+}'
