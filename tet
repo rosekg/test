@@ -1,40 +1,46 @@
-curl -X POST "http://localhost:9200/your_index_name/_search" -H "Content-Type: application/json" -d '{
-  "query": {
-    "bool": {
-      "should": [
-        {
-          "bool": {
-            "must": [
-              {
-                "terms": {
-                  "cola": ["ABC", "CCC", "DDD"]
-                }
-              },
-              {
-                "match": {
-                  "COLC": "YES"
-                }
-              }
-            ]
-          }
-        },
-        {
-          "bool": {
-            "must": [
-              {
-                "terms": {
-                  "cola": ["BBB", "DDD", "EEE"]
-                }
-              },
-              {
-                "match": {
-                  "COLD": "YES"
-                }
-              }
-            ]
-          }
-        }
-      ]
-    }
-  }
-}'
+import requests
+
+def get_shards_info(host, port):
+    url = f'http://{host}:{port}/_cat/shards?v&s=store:desc'
+
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+
+        shards_info = response.text
+        return shards_info
+
+    except requests.exceptions.RequestException as e:
+        print(f"Error retrieving shards information: {e}")
+        return None
+
+def filter_large_shards(shards_info, threshold_size_gb=40):
+    large_shards = []
+
+    if shards_info:
+        lines = shards_info.split('\n')
+        for line in lines[1:-1]:  # Skip header and last empty line
+            _, _, index, shard, prirep, state, docs, store, node = line.split()
+            size_gb = float(store[:-2])  # Assuming size is in GB, remove 'gb' and convert to float
+            if size_gb > threshold_size_gb:
+                large_shards.append((index, shard, docs, size_gb, node))
+
+    return large_shards
+
+if __name__ == "__main__":
+    # Update these with your Elasticsearch host and port
+    elasticsearch_host = 'localhost'
+    elasticsearch_port = 9200
+
+    shards_info = get_shards_info(elasticsearch_host, elasticsearch_port)
+
+    if shards_info:
+        large_shards = filter_large_shards(shards_info)
+        if large_shards:
+            print("Indices with shard size greater than 40GB:")
+            for index, shard, docs, size_gb, node in large_shards:
+                print(f"Index: {index}, Shard: {shard}, Docs: {docs}, Size: {size_gb} GB, Node: {node}")
+        else:
+            print("No shards found with size greater than 40GB.")
+    else:
+        print("Failed to retrieve shards information.")
