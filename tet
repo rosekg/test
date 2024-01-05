@@ -1,46 +1,7 @@
-from elasticsearch import Elasticsearch
-
-def get_large_shards(es, threshold_size_gb=40):
-    large_shards = []
-
-    try:
-        # Fetch shard information using the cat API
-        shards_info = es.cat.shards(format="json", v=True, s="store:desc")
-
-        for shard_info in shards_info:
-            index = shard_info['index']
-            shard = shard_info['shard']
-            docs = shard_info['docs']
-            size_gb = float(shard_info['store'][:-2])  # Assuming size is in GB, remove 'gb' and convert to float
-            node = shard_info['node']
-
-            if size_gb > threshold_size_gb:
-                large_shards.append((index, shard, docs, size_gb, node))
-
-    except Exception as e:
-        print(f"Error retrieving shard information: {e}")
-
-    return large_shards
-
-if __name__ == "__main__":
-    # Update these with your Elasticsearch host and port
-    elasticsearch_host = 'localhost'
-    elasticsearch_port = 9200
-
-    # Connect to Elasticsearch
-    es = Elasticsearch([{'host': elasticsearch_host, 'port': elasticsearch_port}])
-
-    if es.ping():
-        print("Connected to Elasticsearch")
-
-        # Get large shards
-        large_shards = get_large_shards(es)
-
-        if large_shards:
-            print("Indices with shard size greater than 40GB:")
-            for index, shard, docs, size_gb, node in large_shards:
-                print(f"Index: {index}, Shard: {shard}, Docs: {docs}, Size: {size_gb} GB, Node: {node}")
-        else:
-            print("No shards found with size greater than 40GB.")
-    else:
-        print("Failed to connect to Elasticsearch.")
+markdown "Hello"
+| render containerStyle={containerStyle backgroundColor={
+  filters
+  | demodata
+  | math expression="11"
+  | switch case={case if={eq 0} then="red"} case={case if={gt 7} then="yellow"} default="blue"}
+}
