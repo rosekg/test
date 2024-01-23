@@ -1,7 +1,15 @@
-markdown "Hello"
-| render containerStyle={containerStyle backgroundColor={
-  filters
-  | demodata
-  | math expression="11"
-  | switch case={case if={eq 0} then="red"} case={case if={gt 7} then="yellow"} default="blue"}
-}
+Employee Appraisal Points for the Last Year:
+
+Elastic Index Cleanup Utility:
+
+Successfully developed and implemented the Elastic Index Cleanup Utility, demonstrating strong technical skills and problem-solving abilities.
+Ensured daily cleanup of Elastic indices, resulting in a substantial reduction in disk usage and mitigating potential issues related to storage capacity.
+Proactively addressed disk usage alerts, showcasing a proactive approach to system maintenance and resource optimization.
+
+Obsolescence Zero Tolerance, Overall and KRI Metrics Utility:
+
+Spearheaded the development and deployment of the Obsolescence Zero Tolerance initiative, showcasing leadership and commitment to enhancing asset life cycle management.
+Designed and implemented an overall metric utility, providing users with valuable insights for more effective decision-making in asset management.
+Collaborated effectively with cross-functional teams during the development and implement the change as phase by phase. 
+Contributed significantly to improving the efficiency of asset life cycle processes, leading to enhanced user experience and streamlined operations.
+The implemented KRI utility significantly contributed to better decision-making in asset life cycle management by providing key risk indicators and metrics in a clear and accessible format (via Elastic Dashboard).
