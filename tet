@@ -1,15 +1,92 @@
-Employee Appraisal Points for the Last Year:
+from elasticsearch import Elasticsearch
+import psutil
 
-Elastic Index Cleanup Utility:
+# Function to get list of nodes from Elasticsearch
+def get_elasticsearch_nodes(es_host):
+    try:
+        es = Elasticsearch([es_host])
+        nodes_info = es.nodes.info()
+        return list(nodes_info['nodes'].keys())
+    except Exception as e:
+        print(f"Error connecting to Elasticsearch: {e}")
+        return []
 
-Successfully developed and implemented the Elastic Index Cleanup Utility, demonstrating strong technical skills and problem-solving abilities.
-Ensured daily cleanup of Elastic indices, resulting in a substantial reduction in disk usage and mitigating potential issues related to storage capacity.
-Proactively addressed disk usage alerts, showcasing a proactive approach to system maintenance and resource optimization.
+# Function to get disk size on path (/data) for each node
+def get_disk_size_on_nodes(nodes):
+    disk_sizes = {}
+    for node in nodes:
+        path = f"/data"  # Adjust the path accordingly
+        try:
+            disk_info = psutil.disk_usage(path)
+            disk_sizes[node] = disk_info.total / (1024 ** 3)  # Convert to GB
+        except FileNotFoundError:
+            disk_sizes[node] = None
+    return disk_sizes
 
-Obsolescence Zero Tolerance, Overall and KRI Metrics Utility:
+# Function to filter nodes based on disk utilization percentage
+def filter_nodes_by_disk(nodes, threshold_percent_low, threshold_percent_high):
+    filtered_nodes = []
+    for node, disk_size_gb in nodes.items():
+        if disk_size_gb is not None:
+            disk_percent = (psutil.disk_usage("/data").used / psutil.disk_usage("/data").total) * 100
+            if threshold_percent_low <= disk_percent <= threshold_percent_high:
+                filtered_nodes.append((node, disk_percent))
+    return filtered_nodes
 
-Spearheaded the development and deployment of the Obsolescence Zero Tolerance initiative, showcasing leadership and commitment to enhancing asset life cycle management.
-Designed and implemented an overall metric utility, providing users with valuable insights for more effective decision-making in asset management.
-Collaborated effectively with cross-functional teams during the development and implement the change as phase by phase. 
-Contributed significantly to improving the efficiency of asset life cycle processes, leading to enhanced user experience and streamlined operations.
-The implemented KRI utility significantly contributed to better decision-making in asset life cycle management by providing key risk indicators and metrics in a clear and accessible format (via Elastic Dashboard).
+# Function to get Elasticsearch indices with shard sizes greater than 40GB
+def get_large_shard_indices(es, node):
+    large_shard_indices = []
+    try:
+        indices_stats = es.indices.stats(index="_all", metric=["store"], level="shards")
+        for index, index_stats in indices_stats["indices"].items():
+            for shard_stats in index_stats["shards"]:
+                if shard_stats["routing"]["node"] == node and shard_stats["store"]["size_in_bytes"] > 40 * (1024 ** 3):
+                    large_shard_indices.append(index)
+    except Exception as e:
+        print(f"Error retrieving Elasticsearch indices: {e}")
+    return large_shard_indices
+
+# Function to move large shard indices to nodes with lower disk utilization
+def move_large_shard_indices(es, source_node, target_node, large_shard_indices):
+    try:
+        for index in large_shard_indices:
+            reroute_body = {
+                "commands": [
+                    {
+                        "move": {
+                            "index": index,
+                            "from_node": source_node,
+                            "to_node": target_node
+                        }
+                    }
+                ]
+            }
+            es.cluster.reroute(body=reroute_body)
+            print(f"Moved index {index} from {source_node} to {target_node}")
+    except Exception as e:
+        print(f"Error moving indices: {e}")
+
+# Main script
+if __name__ == "__main__":
+    es_host = 'http://localhost:9200'  # Replace with your Elasticsearch server address
+    threshold_percent_low = 75
+    threshold_percent_high = 80
+
+    # Step 1: Get list of nodes from Elasticsearch
+    nodes = get_elasticsearch_nodes(es_host)
+
+    # Step 2: Get disk size on path (/data) for each node
+    disk_sizes = get_disk_size_on_nodes(nodes)
+
+    # Step 3: Filter nodes based on disk utilization percentage
+    filtered_nodes = filter_nodes_by_disk(disk_sizes, threshold_percent_low, threshold_percent_high)
+    
+    # Step 4: Get Elasticsearch indices with shard sizes greater than 40GB
+    es = Elasticsearch([es_host])
+    for node, _ in filtered_nodes:
+        large_shard_indices = get_large_shard_indices(es, node)
+        
+        # Step 5: Move large shard indices to nodes with lower disk utilization
+        if large_shard_indices:
+            target_node = [target for target, _ in filter_nodes_by_disk(disk_sizes, 0, threshold_percent_low)][0]
+            move_large_shard_indices(es, node, target_node, large_shard_indices)
