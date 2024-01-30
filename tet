@@ -1,56 +1,182 @@
-import requests
-import csv
+#!/usr/bin/env python
+# coding: utf-8
+
+# In[20]:
+
+
+import urllib.request
+
+def import_web(ticker):
+    print("import_web")
+    """
+    :param ticker: Takes the company ticker
+    :return: Returns the HTML of the page
+    """
+    url = 'https://www1.nseindia.com/live_market/dynaContent/live_watch/get_quote/GetQuote.jsp?symbol='+ticker+'&illiquid=0&smeFlag=0&itpFlag=0'
+    print(url)
+    req = urllib.request.Request(url, headers={'User-Agent' : "Chrome Browser"}) 
+    fp = urllib.request.urlopen(req, timeout=10)
+    mybytes = fp.read()
+    mystr = mybytes.decode("utf8")
+    fp.close()
+    return mystr
+
+
+# In[9]:
+
+
+def filter_data(string_html):          
+    print("filter_data")
+    searchString = 'div id="responseDiv" style="display:none"'
+    #assign: stores html tag to find where data starts
+    searchString2 = '/div'
+    #stores:  stores html tag where  data end
+    sta = string_html.find(searchString)
+    # returns & store: find() method returns the lowest index of the substring (if found). If not found, it returns -1.
+    data = string_html[sta + 43:]
+    #returns & stores: skips 43 characters and stores the index of substring
+    end = data.find(searchString2)
+    # returns & store: find() method returns the lowest index of the substring (if found). If not found, it returns -1.
+    fdata = data[:end]
+    #fetch: stores the fetched data into fdata
+    stripped = fdata.strip()
+    #removes: blank spaces
+    return stripped
+
+
+# In[10]:
+
+
+def get_quote(ticker):
+    print("get_quote")
+    """
+    :param ticker: Takes the company ticker
+    :return: None
+    """
+    ticker = ticker.upper()
+    try:
+        """fetches a UTF-8-encoded web page, and  extract some text from the HTML"""
+        string_html = import_web(ticker)
+        get_data(filter_data(string_html),ticker)
+    except Exception as e:
+        print(e)
+
+
+# In[11]:
+
+
 import json
 
-# Replace these placeholders with actual values
-login_url = 'https://your_web_portal.com/login'
-explore_data_url = 'https://your_web_portal.com/explore_data'
-export_csv_file = 'exported_data.csv'
-username = 'your_username'
-password = 'your_password'
+data_infy = {}
+data_tcs = {}
 
-# Step 1: Login to the web portal
-login_data = {
-    'username': username,
-    'password': password,
-    'submit': 'login'
-}
+def get_data(stripped, company):
+    print("get_data")
+    js = json.loads(stripped)
+    datajs = js['data'][0]
+    subdictionary = {}
+    subdictionary['1. open'] = datajs['open']
+    subdictionary['2. high'] = datajs['dayHigh']
+    subdictionary['3. low'] = datajs['dayLow']
+    subdictionary['4. close'] = datajs['lastPrice']
+    subdictionary['5. volume'] = datajs['totalTradedVolume']
+    if company == 'INFY':
+        print (
+            'Adding value at : ',
+            js['lastUpdateTime'],
+            ' to ',
+            company,
+            ' Price:',
+            datajs["lastPrice"],
+            )
+        data_infy[js['lastUpdateTime']] = subdictionary
+    elif company == 'TCS':
+        print (
+            'Adding value at : ',
+            js['lastUpdateTime'],
+            ' to ',
+            company,
+            ' Price:',
+            datajs["lastPrice"],
+            )
+        data_tcs[js['lastUpdateTime']] = subdictionary
 
-session = requests.Session()
-login_response = session.post(login_url, data=login_data)
 
-# Check if the login was successful
-if login_response.status_code == 200:
-    print("Login successful")
-else:
-    print("Login failed")
-    exit()
+# In[15]:
 
-# Step 2: Access the explore_data endpoint
-explore_data_response = session.get(explore_data_url)
 
-# Check if accessing the explore_data endpoint was successful
-if explore_data_response.status_code == 200:
-    print("Access to explore_data successful")
-else:
-    print("Access to explore_data failed")
-    exit()
+import time
 
-# Step 3: Parse the JSON response and extract the data
-data = explore_data_response.json()
+lsave=time.time()
 
-# Example config file (replace with actual config file)
-config_file = {
-    'columns': ['column1', 'column2', 'column3']
-}
+def autoSave():
+	print("autoSave")
+	global lsave
+	curr_time = time.time()
+	if(curr_time >= lsave + 300):
+		with open('infy','a+') as f:
+			f.write(str(data_infy))
+		with open('tcs','a+') as f:
+			f.write(str(data_tcs))
+		lsave = time.time()
+		combiner()
+		print("AutoSaved at : "+ time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(lsave)))
 
-# Step 4: Select columns based on config file
-selected_data = [{col: entry[col] for col in config_file['columns']} for entry in data]
 
-# Step 5: Export selected data to CSV file
-with open(export_csv_file, 'w', newline='') as csv_file:
-    csv_writer = csv.DictWriter(csv_file, fieldnames=config_file['columns'])
-    csv_writer.writeheader()
-    csv_writer.writerows(selected_data)
+# In[16]:
 
-print(f"Data exported to {export_csv_file}")
+
+def combiner():
+	print("combiner")
+	file_names = ['infy','tcs']
+
+	for ticker in file_names:
+		final = {}
+
+		with open(ticker,'r') as f:
+			data = f.read()
+		data = data.replace("}{","}split{")
+		splittedData = data.split('split')
+		
+		for dictionary in splittedData:
+			tmp = json.loads(dictionary.replace("'",'"'))
+			for key in tmp.keys():
+				final[key] = tmp[key]
+	
+		newFileName = ticker
+		with open(newFileName,'w') as fw:
+			fw.write(str(final))	
+
+
+# In[21]:
+
+
+def main():
+	print("main")
+	t_list=['TCS','INFY']
+	try:
+		while(True):
+			for ticker in t_list:
+				print("Starting get_quote for ",ticker)
+				get_quote(ticker)
+			autoSave()
+			print("Taking a nap! Good Night")
+			time.sleep(30)
+			print("\n\n")
+	except Exception as e:
+		print(e)
+	finally:
+		with open('infy','a+') as f:
+			f.write(str(data_infy))
+		with open('tcs','a+') as f:
+			f.write(str(data_tcs))
+		combiner()
+        
+main()
+
+
+# In[ ]:
+
+
+
+
