@@ -1,41 +1,56 @@
 import requests
+import csv
+import json
 
-def get_hostname_and_connect(url):
-    try:
-        response = requests.get(url)
-        response.raise_for_status()
-        connecting_hostname = response.headers.get('Connecting-Hostname')
-        return connecting_hostname
-    except requests.exceptions.RequestException as e:
-        print(f"Error accessing URL: {e}")
-        return None
+# Replace these placeholders with actual values
+login_url = 'https://your_web_portal.com/login'
+explore_data_url = 'https://your_web_portal.com/explore_data'
+export_csv_file = 'exported_data.csv'
+username = 'your_username'
+password = 'your_password'
 
-def authenticate(username, password, connecting_hostname):
-    auth_url = f'https://{connecting_hostname}/api/authenticate'
-    data = {'username': username, 'password': password}
+# Step 1: Login to the web portal
+login_data = {
+    'username': username,
+    'password': password,
+    'submit': 'login'
+}
 
-    try:
-        response = requests.post(auth_url, json=data)
-        response.raise_for_status()
-        token = response.json().get('token')
-        return token
-    except requests.exceptions.RequestException as e:
-        print(f"Authentication failed: {e}")
-        return None
+session = requests.Session()
+login_response = session.post(login_url, data=login_data)
 
-# Example usage:
-if __name__ == "__main__":
-    initial_url = 'https://example.com/initial-url'
-    username = 'your_username'
-    password = 'your_password'
+# Check if the login was successful
+if login_response.status_code == 200:
+    print("Login successful")
+else:
+    print("Login failed")
+    exit()
 
-    connecting_hostname = get_hostname_and_connect(initial_url)
+# Step 2: Access the explore_data endpoint
+explore_data_response = session.get(explore_data_url)
 
-    if connecting_hostname:
-        token = authenticate(username, password, connecting_hostname)
-        if token:
-            print(f"Successfully authenticated. Token: {token}")
-        else:
-            print("Authentication failed.")
-    else:
-        print("Failed to retrieve connecting hostname.")
+# Check if accessing the explore_data endpoint was successful
+if explore_data_response.status_code == 200:
+    print("Access to explore_data successful")
+else:
+    print("Access to explore_data failed")
+    exit()
+
+# Step 3: Parse the JSON response and extract the data
+data = explore_data_response.json()
+
+# Example config file (replace with actual config file)
+config_file = {
+    'columns': ['column1', 'column2', 'column3']
+}
+
+# Step 4: Select columns based on config file
+selected_data = [{col: entry[col] for col in config_file['columns']} for entry in data]
+
+# Step 5: Export selected data to CSV file
+with open(export_csv_file, 'w', newline='') as csv_file:
+    csv_writer = csv.DictWriter(csv_file, fieldnames=config_file['columns'])
+    csv_writer.writeheader()
+    csv_writer.writerows(selected_data)
+
+print(f"Data exported to {export_csv_file}")
