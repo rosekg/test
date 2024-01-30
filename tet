@@ -1,3 +1,6 @@
+https://forum.bigfix.com/t/rest-api-script-to-pull-report-from-bigfix-web-report/29996/4
+
+
 pip config set global.trusted-host \
     "pypi.org files.pythonhosted.org pypi.python.org" \
     --trusted-host=pypi.python.org \
