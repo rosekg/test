@@ -1,3 +1,51 @@
+
+from elasticsearch import Elasticsearch, helpers
+
+def get_shards_info(es, index):
+    # Get information about the shards of the specified index
+    try:
+        response = es.cat.shards(index=index, format="json", h="shard,node")
+        return response
+    except Exception as e:
+        print(f"Error retrieving shard information: {e}")
+        return None
+
+def move_shards_between_indices(es, source_index, target_index):
+    # Get information about the shards in the source index
+    shards_info = get_shards_info(es, source_index)
+
+    if shards_info is None:
+        return None
+
+    # Loop through each shard and perform the reindex operation
+    for shard_info in shards_info:
+        shard, node = shard_info["shard"], shard_info["node"]
+
+        # Use the _reindex API to move the specific shard from source to target index
+        body = {
+            "source": {"index": source_index, "query": {"term": {"_id": shard}}},
+            "dest": {"index": target_index}
+        }
+
+        try:
+            response = es.reindex(body=body, request_timeout=600, wait_for_completion=True, wait_for_active_shards="all")
+            print(f"Shard {shard} moved successfully from node {node}.")
+        except Exception as e:
+            print(f"Error moving shard {shard}: {e}")
+
+# Example usage:
+if __name__ == "__main__":
+    es_host = 'http://localhost:9200'  # Replace with your Elasticsearch server address
+    source_index = 'source_index'
+    target_index = 'target_index'
+
+    es = Elasticsearch([es_host])
+
+    move_shards_between_indices(es, source_index, target_index)
+
+
+
+
 https://forum.bigfix.com/t/rest-api-script-to-pull-report-from-bigfix-web-report/29996/4
 
 
