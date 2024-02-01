@@ -1,3 +1,60 @@
+import csv
+import requests
+
+def update_comments_and_close(instance_url, username, password, ticket_sys_ids, comments):
+    base_url = f"{instance_url}/api/now/table/incident"
+    headers = {"Content-Type": "application/json"}
+
+    for sys_id, comment in zip(ticket_sys_ids, comments):
+        # Add a comment to the ticket
+        comment_payload = {
+            "comments": comment
+        }
+
+        comment_url = f"{base_url}/{sys_id}"
+        response_comment = requests.patch(comment_url, auth=(username, password), headers=headers, json=comment_payload)
+
+        if response_comment.status_code == 200:
+            print(f"Comment added to ticket with sys_id {sys_id}.")
+        else:
+            print(f"Failed to add comment to ticket with sys_id {sys_id}. Status code: {response_comment.status_code}")
+            print(response_comment.text)
+            continue
+
+        # Close the ticket
+        close_payload = {
+            "state": "7"  # "7" represents the 'Closed' state in ServiceNow
+        }
+
+        close_url = f"{base_url}/{sys_id}"
+        response_close = requests.patch(close_url, auth=(username, password), headers=headers, json=close_payload)
+
+        if response_close.status_code == 200:
+            print(f"Ticket with sys_id {sys_id} closed successfully.")
+        else:
+            print(f"Failed to close ticket with sys_id {sys_id}. Status code: {response_close.status_code}")
+            print(response_close.text)
+
+# Example usage:
+if __name__ == "__main__":
+    instance_url = "https://your_instance.service-now.com"
+    username = "your_username"
+    password = "your_password"
+
+    # Assuming the CSV file has columns 'sys_id' and 'comments' for each ticket
+    csv_file_path = "input_tickets.csv"
+
+    with open(csv_file_path, newline="", encoding="utf-8") as csvfile:
+        reader = csv.DictReader(csvfile)
+        ticket_sys_ids = [row["sys_id"] for row in reader]
+        comments = [row.get("comments", "") for row in reader]
+
+    update_comments_and_close(instance_url, username, password, ticket_sys_ids, comments)
+
+
+
+
+
 
 from elasticsearch import Elasticsearch, helpers
 
@@ -178,65 +235,58 @@ def autoSave():
 			f.write(str(data_infy))
 		with open('tcs','a+') as f:
 			f.write(str(data_tcs))
-		lsave = time.time()
-		combiner()
-		print("AutoSaved at : "+ time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(lsave)))
+import csv
+import requests
 
+def update_comments_and_close(instance_url, username, password, ticket_sys_ids, comments):
+    base_url = f"{instance_url}/api/now/table/incident"
+    headers = {"Content-Type": "application/json"}
 
-# In[16]:
+    for sys_id, comment in zip(ticket_sys_ids, comments):
+        # Add a comment to the ticket
+        comment_payload = {
+            "comments": comment
+        }
 
+        comment_url = f"{base_url}/{sys_id}"
+        response_comment = requests.patch(comment_url, auth=(username, password), headers=headers, json=comment_payload)
 
-def combiner():
-	print("combiner")
-	file_names = ['infy','tcs']
+        if response_comment.status_code == 200:
+            print(f"Comment added to ticket with sys_id {sys_id}.")
+        else:
+            print(f"Failed to add comment to ticket with sys_id {sys_id}. Status code: {response_comment.status_code}")
+            print(response_comment.text)
+            continue
 
-	for ticker in file_names:
-		final = {}
+        # Close the ticket
+        close_payload = {
+            "state": "7"  # "7" represents the 'Closed' state in ServiceNow
+        }
 
-		with open(ticker,'r') as f:
-			data = f.read()
-		data = data.replace("}{","}split{")
-		splittedData = data.split('split')
-		
-		for dictionary in splittedData:
-			tmp = json.loads(dictionary.replace("'",'"'))
-			for key in tmp.keys():
-				final[key] = tmp[key]
-	
-		newFileName = ticker
-		with open(newFileName,'w') as fw:
-			fw.write(str(final))	
+        close_url = f"{base_url}/{sys_id}"
+        response_close = requests.patch(close_url, auth=(username, password), headers=headers, json=close_payload)
 
+        if response_close.status_code == 200:
+            print(f"Ticket with sys_id {sys_id} closed successfully.")
+        else:
+            print(f"Failed to close ticket with sys_id {sys_id}. Status code: {response_close.status_code}")
+            print(response_close.text)
 
-# In[21]:
+# Example usage:
+if __name__ == "__main__":
+    instance_url = "https://your_instance.service-now.com"
+    username = "your_username"
+    password = "your_password"
 
+    # Assuming the CSV file has columns 'sys_id' and 'comments' for each ticket
+    csv_file_path = "input_tickets.csv"
 
-def main():
-	print("main")
-	t_list=['TCS','INFY']
-	try:
-		while(True):
-			for ticker in t_list:
-				print("Starting get_quote for ",ticker)
-				get_quote(ticker)
-			autoSave()
-			print("Taking a nap! Good Night")
-			time.sleep(30)
-			print("\n\n")
-	except Exception as e:
-		print(e)
-	finally:
-		with open('infy','a+') as f:
-			f.write(str(data_infy))
-		with open('tcs','a+') as f:
-			f.write(str(data_tcs))
-		combiner()
-        
-main()
+    with open(csv_file_path, newline="", encoding="utf-8") as csvfile:
+        reader = csv.DictReader(csvfile)
+        ticket_sys_ids = [row["sys_id"] for row in reader]
+        comments = [row.get("comments", "") for row in reader]
 
-
-# In[ ]:
-
+    update_comments_and_close(instance_url, username, password, ticket_sys_ids, comments)
 
 
 
