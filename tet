@@ -1,292 +1,41 @@
-import csv
 import requests
 
-def update_comments_and_close(instance_url, username, password, ticket_sys_ids, comments):
-    base_url = f"{instance_url}/api/now/table/incident"
-    headers = {"Content-Type": "application/json"}
-
-    for sys_id, comment in zip(ticket_sys_ids, comments):
-        # Add a comment to the ticket
-        comment_payload = {
-            "comments": comment
-        }
-
-        comment_url = f"{base_url}/{sys_id}"
-        response_comment = requests.patch(comment_url, auth=(username, password), headers=headers, json=comment_payload)
-
-        if response_comment.status_code == 200:
-            print(f"Comment added to ticket with sys_id {sys_id}.")
-        else:
-            print(f"Failed to add comment to ticket with sys_id {sys_id}. Status code: {response_comment.status_code}")
-            print(response_comment.text)
-            continue
-
-        # Close the ticket
-        close_payload = {
-            "state": "7"  # "7" represents the 'Closed' state in ServiceNow
-        }
-
-        close_url = f"{base_url}/{sys_id}"
-        response_close = requests.patch(close_url, auth=(username, password), headers=headers, json=close_payload)
-
-        if response_close.status_code == 200:
-            print(f"Ticket with sys_id {sys_id} closed successfully.")
-        else:
-            print(f"Failed to close ticket with sys_id {sys_id}. Status code: {response_close.status_code}")
-            print(response_close.text)
-
-# Example usage:
-if __name__ == "__main__":
-    instance_url = "https://your_instance.service-now.com"
-    username = "your_username"
-    password = "your_password"
-
-    # Assuming the CSV file has columns 'sys_id' and 'comments' for each ticket
-    csv_file_path = "input_tickets.csv"
-
-    with open(csv_file_path, newline="", encoding="utf-8") as csvfile:
-        reader = csv.DictReader(csvfile)
-        ticket_sys_ids = [row["sys_id"] for row in reader]
-        comments = [row.get("comments", "") for row in reader]
-
-    update_comments_and_close(instance_url, username, password, ticket_sys_ids, comments)
-
-
-
-
-
-
-from elasticsearch import Elasticsearch, helpers
-
-def get_shards_info(es, index):
-    # Get information about the shards of the specified index
-    try:
-        response = es.cat.shards(index=index, format="json", h="shard,node")
-        return response
-    except Exception as e:
-        print(f"Error retrieving shard information: {e}")
-        return None
-
-def move_shards_between_indices(es, source_index, target_index):
-    # Get information about the shards in the source index
-    shards_info = get_shards_info(es, source_index)
-
-    if shards_info is None:
-        return None
-
-    # Loop through each shard and perform the reindex operation
-    for shard_info in shards_info:
-        shard, node = shard_info["shard"], shard_info["node"]
-
-        # Use the _reindex API to move the specific shard from source to target index
-        body = {
-            "source": {"index": source_index, "query": {"term": {"_id": shard}}},
-            "dest": {"index": target_index}
-        }
-
-        try:
-            response = es.reindex(body=body, request_timeout=600, wait_for_completion=True, wait_for_active_shards="all")
-            print(f"Shard {shard} moved successfully from node {node}.")
-        except Exception as e:
-            print(f"Error moving shard {shard}: {e}")
-
-# Example usage:
-if __name__ == "__main__":
-    es_host = 'http://localhost:9200'  # Replace with your Elasticsearch server address
-    source_index = 'source_index'
-    target_index = 'target_index'
-
-    es = Elasticsearch([es_host])
-
-    move_shards_between_indices(es, source_index, target_index)
-
-
-
-
-https://forum.bigfix.com/t/rest-api-script-to-pull-report-from-bigfix-web-report/29996/4
-
-
-pip config set global.trusted-host \
-    "pypi.org files.pythonhosted.org pypi.python.org" \
-    --trusted-host=pypi.python.org \
-    --trusted-host=pypi.org \
-    --trusted-host=files.pythonhosted.org
-
-
-
-
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[20]:
-
-
-import urllib.request
-
-def import_web(ticker):
-    print("import_web")
-    """
-    :param ticker: Takes the company ticker
-    :return: Returns the HTML of the page
-    """
-    url = 'https://www1.nseindia.com/live_market/dynaContent/live_watch/get_quote/GetQuote.jsp?symbol='+ticker+'&illiquid=0&smeFlag=0&itpFlag=0'
-    print(url)
-    req = urllib.request.Request(url, headers={'User-Agent' : "Chrome Browser"}) 
-    fp = urllib.request.urlopen(req, timeout=10)
-    mybytes = fp.read()
-    mystr = mybytes.decode("utf8")
-    fp.close()
-    return mystr
-
-
-# In[9]:
-
-
-def filter_data(string_html):          
-    print("filter_data")
-    searchString = 'div id="responseDiv" style="display:none"'
-    #assign: stores html tag to find where data starts
-    searchString2 = '/div'
-    #stores:  stores html tag where  data end
-    sta = string_html.find(searchString)
-    # returns & store: find() method returns the lowest index of the substring (if found). If not found, it returns -1.
-    data = string_html[sta + 43:]
-    #returns & stores: skips 43 characters and stores the index of substring
-    end = data.find(searchString2)
-    # returns & store: find() method returns the lowest index of the substring (if found). If not found, it returns -1.
-    fdata = data[:end]
-    #fetch: stores the fetched data into fdata
-    stripped = fdata.strip()
-    #removes: blank spaces
-    return stripped
-
-
-# In[10]:
-
-
-def get_quote(ticker):
-    print("get_quote")
-    """
-    :param ticker: Takes the company ticker
-    :return: None
-    """
-    ticker = ticker.upper()
-    try:
-        """fetches a UTF-8-encoded web page, and  extract some text from the HTML"""
-        string_html = import_web(ticker)
-        get_data(filter_data(string_html),ticker)
-    except Exception as e:
-        print(e)
-
-
-# In[11]:
-
-
-import json
-
-data_infy = {}
-data_tcs = {}
-
-def get_data(stripped, company):
-    print("get_data")
-    js = json.loads(stripped)
-    datajs = js['data'][0]
-    subdictionary = {}
-    subdictionary['1. open'] = datajs['open']
-    subdictionary['2. high'] = datajs['dayHigh']
-    subdictionary['3. low'] = datajs['dayLow']
-    subdictionary['4. close'] = datajs['lastPrice']
-    subdictionary['5. volume'] = datajs['totalTradedVolume']
-    if company == 'INFY':
-        print (
-            'Adding value at : ',
-            js['lastUpdateTime'],
-            ' to ',
-            company,
-            ' Price:',
-            datajs["lastPrice"],
-            )
-        data_infy[js['lastUpdateTime']] = subdictionary
-    elif company == 'TCS':
-        print (
-            'Adding value at : ',
-            js['lastUpdateTime'],
-            ' to ',
-            company,
-            ' Price:',
-            datajs["lastPrice"],
-            )
-        data_tcs[js['lastUpdateTime']] = subdictionary
-
-
-# In[15]:
-
-
-import time
-
-lsave=time.time()
-
-def autoSave():
-	print("autoSave")
-	global lsave
-	curr_time = time.time()
-	if(curr_time >= lsave + 300):
-		with open('infy','a+') as f:
-			f.write(str(data_infy))
-		with open('tcs','a+') as f:
-			f.write(str(data_tcs))
-import csv
-import requests
-
-def update_comments_and_close(instance_url, username, password, ticket_sys_ids, comments):
-    base_url = f"{instance_url}/api/now/table/incident"
-    headers = {"Content-Type": "application/json"}
-
-    for sys_id, comment in zip(ticket_sys_ids, comments):
-        # Add a comment to the ticket
-        comment_payload = {
-            "comments": comment
-        }
-
-        comment_url = f"{base_url}/{sys_id}"
-        response_comment = requests.patch(comment_url, auth=(username, password), headers=headers, json=comment_payload)
-
-        if response_comment.status_code == 200:
-            print(f"Comment added to ticket with sys_id {sys_id}.")
-        else:
-            print(f"Failed to add comment to ticket with sys_id {sys_id}. Status code: {response_comment.status_code}")
-            print(response_comment.text)
-            continue
-
-        # Close the ticket
-        close_payload = {
-            "state": "7"  # "7" represents the 'Closed' state in ServiceNow
-        }
-
-        close_url = f"{base_url}/{sys_id}"
-        response_close = requests.patch(close_url, auth=(username, password), headers=headers, json=close_payload)
-
-        if response_close.status_code == 200:
-            print(f"Ticket with sys_id {sys_id} closed successfully.")
-        else:
-            print(f"Failed to close ticket with sys_id {sys_id}. Status code: {response_close.status_code}")
-            print(response_close.text)
-
-# Example usage:
-if __name__ == "__main__":
-    instance_url = "https://your_instance.service-now.com"
-    username = "your_username"
-    password = "your_password"
-
-    # Assuming the CSV file has columns 'sys_id' and 'comments' for each ticket
-    csv_file_path = "input_tickets.csv"
-
-    with open(csv_file_path, newline="", encoding="utf-8") as csvfile:
-        reader = csv.DictReader(csvfile)
-        ticket_sys_ids = [row["sys_id"] for row in reader]
-        comments = [row.get("comments", "") for row in reader]
-
-    update_comments_and_close(instance_url, username, password, ticket_sys_ids, comments)
-
-
+# ServiceNow instance details
+instance_url = "https://your_instance.service-now.com"
+username = "your_username"
+password = "your_password"
+
+# Ticket details
+sys_id = "your_ticket_sys_id"
+resolution_type = "Resolved"
+resolution_code = "Closed"
+resolution_notes = "Ticket resolved successfully"
+request_type = "Incident"  # Replace with the appropriate request type
+
+# API endpoint for updating an incident (change 'incident' to the appropriate table name)
+api_endpoint = f"{instance_url}/api/now/table/incident/{sys_id}"
+
+# Set up the request headers
+headers = {
+    "Content-Type": "application/json",
+    "Accept": "application/json",
+}
+
+# Set up the request payload with the fields to be updated
+payload = {
+    "resolution_type": resolution_type,
+    "resolution_code": resolution_code,
+    "resolution_notes": resolution_notes,
+    "request_type": request_type,
+}
+
+# Make the PUT request to update the ticket
+response = requests.put(api_endpoint, auth=(username, password), headers=headers, json=payload)
+
+# Check the response status
+if response.status_code == 200:
+    print(f"Ticket {sys_id} updated successfully.")
+else:
+    print(f"Failed to update ticket {sys_id}. Status code: {response.status_code}")
+    print(response.text)
 
