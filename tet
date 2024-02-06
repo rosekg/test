@@ -2,20 +2,28 @@ import pandas as pd
 
 # Sample Input DataFrame
 data = {'cola': ['ABC', 'DEF', 'ABC', 'GHI', 'DEF', 'GHI', 'JKL'],
-        'colb': ['AAA', 'BBB', 'CCC', 'DDD', 'EEE', 'FFF', 'GGG']}
+        'colb': ['AAA', 'BBB', 'CCC', 'DDD', 'BBB', 'DDD', 'GGG']}
 df = pd.DataFrame(data)
 
-# Group by 'cola' and count the occurrences
-cola_counts = df['cola'].value_counts()
+# Group by 'cola' and aggregate unique 'colb' values for each group
+shared_colb_values = df.groupby('cola')['colb'].unique().apply(list)
 
-# Update 'is_cola_shared' column based on whether 'cola' value is shared
-df['is_cola_shared'] = df['cola'].apply(lambda x: 'yes' if cola_counts[x] > 1 else 'no')
+# Define a function to check if cola is shared
+def is_cola_shared(x):
+    return 'yes' if len(shared_colb_values[x]) > 0 else 'no'
 
-# Create 'shared_colb_values' column containing lists of 'colb' values for shared 'cola'
-df['shared_colb_values'] = df['cola'].apply(lambda x: df[df['cola'] == x]['colb'].tolist() if cola_counts[x] > 1 else [])
+# Define a function to get shared colb values count
+def get_shared_colb_values_count(x):
+    return len(shared_colb_values[x]) if isinstance(shared_colb_values[x], list) else 0
 
-# Create 'shared_colb_values_count' column containing count of shared 'colb' values
-df['shared_colb_values_count'] = df['shared_colb_values'].apply(lambda x: len(x))
+# Calculate is_cola_shared column
+df['is_cola_shared'] = df['cola'].apply(is_cola_shared)
 
-# Display the updated DataFrame
+# Calculate shared_colb_values column
+df['shared_colb_values'] = df['cola'].map(shared_colb_values)
+
+# Calculate shared_colb_values_count column
+df['shared_colb_values_count'] = df['cola'].apply(get_shared_colb_values_count)
+
+# Display the DataFrame
 print(df)
