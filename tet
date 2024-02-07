@@ -1,7 +1,7 @@
 import pandas as pd
 
 # Sample Input DataFrame
-data = {'cola': ['ABC', 'DEF', 'ABC', 'GHI', 'DEF', 'GHI', 'JKL'],
+data = {'cola': ['ABC', 'DEF', 'ABC', 'NotFound', 'DEF', 'NotFound', 'JKL'],
         'colb': ['AAA', 'BBB', 'CCC', 'DDD', 'BBB', 'DDD', 'GGG']}
 df = pd.DataFrame(data)
 
@@ -10,20 +10,38 @@ shared_colb_values = df.groupby('cola')['colb'].unique().apply(list)
 
 # Define a function to check if cola is shared
 def is_cola_shared(x):
-    return 'yes' if len(shared_colb_values[x]) > 0 else 'no'
+    if x not in shared_colb_values:
+        return ''
+    elif len(shared_colb_values[x]) > 0:
+        return 'yes'
+    else:
+        return 'no'
 
-# Define a function to get shared colb values count
-def get_shared_colb_values_count(x):
-    return len(shared_colb_values[x]) if isinstance(shared_colb_values[x], list) else 0
+# Define a function to create JSON values based on the 'is_cola_shared' column
+def create_json_value(cola, shared_colb_values, shared_colb_values_count):
+    json_value = {}
+    if shared_colb_values:
+        json_value['shared_colb_values'] = shared_colb_values
+    if shared_colb_values_count:
+        json_value['shared_colb_values_count'] = shared_colb_values_count
+    if cola:
+        json_value['is_cola_shared'] = cola
+    return json_value
 
-# Calculate is_cola_shared column
-df['is_cola_shared'] = df['cola'].apply(is_cola_shared)
+# Filter out 'NotFound' values and apply functions only to valid 'cola' values
+valid_cola_df = df[df['cola'] != 'NotFound']
 
-# Calculate shared_colb_values column
-df['shared_colb_values'] = df['cola'].map(shared_colb_values)
+# Derive the 'control_fields' column using the function
+valid_cola_df['is_cola_shared'] = valid_cola_df['cola'].apply(is_cola_shared)
+valid_cola_df['shared_colb_values'] = valid_cola_df['cola'].map(shared_colb_values)
+valid_cola_df['shared_colb_values_count'] = valid_cola_df['cola'].apply(lambda x: len(shared_colb_values[x]) if x in shared_colb_values else 0)
+valid_cola_df['control_fields'] = valid_cola_df.apply(lambda row: create_json_value(row['is_cola_shared'], row['shared_colb_values'], row['shared_colb_values_count']), axis=1)
 
-# Calculate shared_colb_values_count column
-df['shared_colb_values_count'] = df['cola'].apply(get_shared_colb_values_count)
+# Combine with original DataFrame
+result_df = pd.concat([valid_cola_df, df[df['cola'] == 'NotFound']])
+
+# Drop unnecessary columns
+result_df = result_df.drop(columns=['is_cola_shared', 'shared_colb_values', 'shared_colb_values_count'])
 
 # Display the DataFrame
-print(df)
+print(result_df)
