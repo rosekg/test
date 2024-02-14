@@ -2,50 +2,53 @@ import imaplib
 import email
 import os
 
-# Function to extract attachments from emails
-def extract_attachments(email_message):
-    attachments = []
-    for part in email_message.walk():
-        if part.get_content_maintype() == 'multipart':
-            continue
-        if part.get('Content-Disposition') is None:
-            continue
+# IMAP authentication details
+#username = 'YOUR_EMAIL_ADDRESS'
+#password = 'YOUR_EMAIL_PASSWORD'
+imap_server = 'outlook.office365.com'
 
-        filename = part.get_filename()
-        if filename:
-            attachments.append({
-                'filename': filename,
-                'content': part.get_payload(decode=True)
-            })
-    return attachments
+username = 'prabhutk07@outlook.com'
+password = 'CAhcet@2011P'
+#subject = 'ABC inventory'
 
-# Function to connect to the mailbox and extract attachments
-def extract_attachments_from_mailbox(username, password, mailbox='INBOX'):
-    # Connect to the IMAP server
-    imap = imaplib.IMAP4_SSL('imap.example.com')
-    imap.login(username, password)
-    imap.select(mailbox)
 
-    # Search for all emails
-    result, data = imap.search(None, 'ALL')
-    if result == 'OK':
-        for num in data[0].split():
-            result, data = imap.fetch(num, '(RFC822)')
-            if result == 'OK':
-                raw_email = data[0][1]
-                email_message = email.message_from_bytes(raw_email)
-                attachments = extract_attachments(email_message)
-                for attachment in attachments:
-                    filename = attachment['filename']
-                    content = attachment['content']
-                    # Save the attachment
-                    with open(filename, 'wb') as f:
-                        f.write(content)
-    imap.close()
-    imap.logout()
+# Connect to the IMAP server
+mail = imaplib.IMAP4_SSL(imap_server)
+mail.login(username, password)
+print("Login successful")
+# Select the inbox
+mail.select('inbox')
 
-# Example usage
-if __name__ == "__main__":
-    username = 'your_email@example.com'
-    password = 'your_password'
-    extract_attachments_from_mailbox(username, password)
+# Search for emails with the subject "ABC inventory"
+result, data = mail.search(None, '(SUBJECT "ABC inventory")')
+
+print(result)
+print(data)
+
+for num in data[0].split():
+    result, data = mail.fetch(num, '(RFC822)')
+    raw_email = data[0][1]
+    msg = email.message_from_bytes(raw_email)
+    print(result)
+    #print(data)
+    #print(raw_email)
+    #print(msg)
+    print(msg['Subject'])
+
+    # Check if the subject is "ABC inventory"
+    if 'ABC inventory' in msg['Subject'] :
+        print(msg['Subject'])
+        for part in msg.walk():
+            if part.get_content_maintype() == 'multipart':
+                continue
+            if part.get('Content-Disposition') is None:
+                continue
+            filename = part.get_filename()
+            if filename:
+                att_path = os.path.join(os.getcwd(), filename)
+                with open(att_path, 'wb') as f:
+                    f.write(part.get_payload(decode=True))
+
+# Close the connection
+mail.close()
+mail.logout()
