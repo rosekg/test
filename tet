@@ -1,54 +1,36 @@
-import imaplib
-import email
-import os
+from elasticsearch import Elasticsearch, helpers
 
-# IMAP authentication details
-#username = 'YOUR_EMAIL_ADDRESS'
-#password = 'YOUR_EMAIL_PASSWORD'
-imap_server = 'outlook.office365.com'
+# Source and destination Elasticsearch hosts
+source_host = 'http://source_host:9200'
+dest_host = 'http://dest_host:9200'
 
-username = 'prabhutk07@outlook.com'
-password = 'CAhcet@2011P'
-#subject = 'ABC inventory'
+# Initialize Elasticsearch clients for source and destination hosts
+source_es = Elasticsearch(source_host)
+dest_es = Elasticsearch(dest_host)
 
+# Source index and query
+source_index = 'source_index'
+query = {"query": {"match_all": {}}}
 
-# Connect to the IMAP server
-mail = imaplib.IMAP4_SSL(imap_server)
-mail.login(username, password)
-print("Login successful")
-# Select the inbox
-mail.select('inbox')
+# Use the scan API to efficiently retrieve all documents from the source index
+scan_result = helpers.scan(
+    client=source_es,
+    index=source_index,
+    query=query
+)
 
-# Search for emails with the subject "ABC inventory"
-result, data = mail.search(None, '(SUBJECT "ABC inventory")')
+# Bulk index the retrieved documents into the destination index
+dest_index = 'dest_index'
+actions = [
+    {
+        "_index": dest_index,
+        "_id": doc["_id"],
+        "_source": doc["_source"]
+    }
+    for doc in scan_result
+]
 
-print(result)
-print(data)
+# Perform the bulk indexing operation
+helpers.bulk(dest_es, actions)
 
-for num in data[0].split():
-    result, data = mail.fetch(num, '(RFC822)')
-    raw_email = data[0][1]
-    msg = email.message_from_bytes(raw_email)
-    print(result)
-    #print(data)
-    #print(raw_email)
-    #print(msg)
-    print(msg['Subject'])
-
-    # Check if the subject is "ABC inventory"
-    if 'ABC inventory' in msg['Subject'] :
-        print(msg['Subject'])
-        for part in msg.walk():
-            if part.get_content_maintype() == 'multipart':
-                continue
-            if part.get('Content-Disposition') is None:
-                continue
-            filename = part.get_filename()
-            if filename:
-                att_path = os.path.join(os.getcwd(), filename)
-                with open(att_path, 'wb') as f:
-                    f.write(part.get_payload(decode=True))
-
-# Close the connection
-mail.close()
-mail.logout()
+print(f"Data copied from '{source_index}' on '{source_host}' to '{dest_index}' on '{dest_host}'")
