@@ -1,36 +1,40 @@
-from elasticsearch import Elasticsearch, helpers
+import requests
+import json
 
-# Source and destination Elasticsearch hosts
-source_host = 'http://source_host:9200'
-dest_host = 'http://dest_host:9200'
+# Set your ServiceNow instance URL, username, and password
+instance = 'your_instance_url'
+username = 'your_username'
+password = 'your_password'
 
-# Initialize Elasticsearch clients for source and destination hosts
-source_es = Elasticsearch(source_host)
-dest_es = Elasticsearch(dest_host)
+# Set the incident number you want to update
+incident_number = 'INC0012345'
 
-# Source index and query
-source_index = 'source_index'
-query = {"query": {"match_all": {}}}
+# Set the API endpoint
+url = f'https://{instance}/api/now/table/incident/{incident_number}'
 
-# Use the scan API to efficiently retrieve all documents from the source index
-scan_result = helpers.scan(
-    client=source_es,
-    index=source_index,
-    query=query
-)
+# Set headers
+headers = {
+    'Accept': 'application/json',
+    'Content-Type': 'application/json',
+}
 
-# Bulk index the retrieved documents into the destination index
-dest_index = 'dest_index'
-actions = [
-    {
-        "_index": dest_index,
-        "_id": doc["_id"],
-        "_source": doc["_source"]
-    }
-    for doc in scan_result
-]
+# Set data for updating the incident
+update_data = {
+    'state': 3,  # Resolved state
+    'close_notes': 'Incident resolved.',
+}
 
-# Perform the bulk indexing operation
-helpers.bulk(dest_es, actions)
+# Set proxy settings if needed
+proxies = {
+    'http': 'http://your_proxy_server',
+    'https': 'https://your_proxy_server',
+}
 
-print(f"Data copied from '{source_index}' on '{source_host}' to '{dest_index}' on '{dest_host}'")
+# Update the incident
+response = requests.put(url, auth=(username, password), headers=headers, data=json.dumps(update_data), proxies=proxies)
+
+# Check if the request was successful
+if response.status_code == 200:
+    print(f"Incident {incident_number} has been resolved.")
+else:
+    print(f"Failed to resolve incident {incident_number}. Status code: {response.status_code}, Response: {response.text}")
