@@ -1,40 +1,33 @@
-import requests
-import json
+import pandas as pd
+from jira import JIRA
 
-# Set your ServiceNow instance URL, username, and password
-instance = 'your_instance_url'
+# Set your Jira Cloud credentials and Jira URL
+jira_url = 'your_jira_url'
 username = 'your_username'
-password = 'your_password'
+api_token = 'your_api_token'
 
-# Set the incident number you want to update
-incident_number = 'INC0012345'
+# Authenticate with Jira Cloud
+jira = JIRA(jira_url, basic_auth=(username, api_token))
 
-# Set the API endpoint
-url = f'https://{instance}/api/now/table/incident/{incident_number}'
+# Read the CSV file
+data = pd.read_csv('your_csv_file.csv')
 
-# Set headers
-headers = {
-    'Accept': 'application/json',
-    'Content-Type': 'application/json',
-}
+# Iterate over each row in the CSV file
+for index, row in data.iterrows():
+    # Create a new issue in Jira
+    issue_dict = {
+        'project': {'key': 'your_project_key'},
+        'summary': row['summary'],
+        'description': row['description'],
+        'issuetype': {'name': 'Task'},
+        'assignee': {'name': row['assignee']},
+    }
+    new_issue = jira.create_issue(fields=issue_dict)
 
-# Set data for updating the incident
-update_data = {
-    'state': 3,  # Resolved state
-    'close_notes': 'Incident resolved.',
-}
+    # Transition the issue to 'Action In Progress'
+    jira.transition_issue(new_issue, '31')  # ID for 'Action In Progress' status
 
-# Set proxy settings if needed
-proxies = {
-    'http': 'http://your_proxy_server',
-    'https': 'https://your_proxy_server',
-}
+    # Transition the issue to 'Done'
+    jira.transition_issue(new_issue, '41')  # ID for 'Done' status
 
-# Update the incident
-response = requests.put(url, auth=(username, password), headers=headers, data=json.dumps(update_data), proxies=proxies)
-
-# Check if the request was successful
-if response.status_code == 200:
-    print(f"Incident {incident_number} has been resolved.")
-else:
-    print(f"Failed to resolve incident {incident_number}. Status code: {response.status_code}, Response: {response.text}")
+    print(f"Created issue {new_issue.key} and transitioned it to 'Done'")
