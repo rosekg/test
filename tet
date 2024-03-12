@@ -1,29 +1,25 @@
-import json
+import pandas as pd
+from datetime import datetime
 
-# Assuming index_settings is the existing settings dictionary
-index_settings = {
-    "settings": {
-        "number_of_shards": 1,
-        "number_of_replicas": 0
-    },
-    "mappings": {
-        "properties": {}
-    }
-}
+# Read the CSV files into DataFrames
+master_df = pd.read_csv('master.csv')
+delta1_df = pd.read_csv('delta1.csv')
+delta_removed_df = pd.read_csv('delta_removed.csv')
 
-# Iterate over columns in master_df to add mapping properties
-for column in master_df.columns:
-    if master_df[column].dtype == 'int64':
-        index_settings["mappings"]["properties"][column] = {"type": "integer"}
-    elif master_df[column].dtype == 'float64':
-        index_settings["mappings"]["properties"][column] = {"type": "float"}
-    elif master_df[column].dtype == 'bool':
-        index_settings["mappings"]["properties"][column] = {"type": "boolean"}
-    elif master_df[column].dtype == 'datetime64[ns]':
-        index_settings["mappings"]["properties"][column] = {"type": "date"}
-    else:
-        index_settings["mappings"]["properties"][column] = {"type": "text"}
+# Set the initial flag value to "Not found"
+master_df['flag'] = 'Not found'
 
-# Convert index_settings to JSON
-index_settings_json = json.dumps(index_settings, indent=4)
-print(index_settings_json)
+# Update flag to "to be migrated" for records in delta1
+master_df.loc[master_df['record_id'].isin(delta1_df['record_id']), 'flag'] = 'to be migrated'
+
+# Update flag to "removed" for records in delta_removed
+master_df.loc[master_df['record_id'].isin(delta_removed_df['record_id']), 'flag'] = 'removed'
+
+# Add actual_mig_date for all removed records
+delta_removed_df['actual_mig_date'] = pd.to_datetime(delta_removed_df['timestamp'], errors='coerce').dt.date
+delta_removed_dates = dict(zip(delta_removed_df['record_id'], delta_removed_df['actual_mig_date']))
+master_df['actual_mig_date'] = master_df['record_id'].map(delta_removed_dates)
+master_df['actual_mig_date'] = master_df['actual_mig_date'].fillna(datetime.now().date())
+
+# Save the updated master_df if needed
+master_df.to_csv('updated_master.csv', index=False)
