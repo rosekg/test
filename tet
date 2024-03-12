@@ -1,20 +1,22 @@
-from jira import JIRA
+import pandas as pd
 
-# Set your Jira Cloud credentials and Jira URL
-jira_url = 'your_jira_url'
-username = 'your_username'
-api_token = 'your_api_token'
+# Read the CSV files into DataFrames
+master_df = pd.read_csv('master.csv')
+delta1_df = pd.read_csv('delta1.csv')
+delta_removed_df = pd.read_csv('delta_removed.csv')
 
-# Authenticate with Jira Cloud
-jira = JIRA(jira_url, basic_auth=(username, api_token))
+# Set the initial flag value to "Not found"
+master_df['flag'] = 'Not found'
 
-# Set the issue key of the ticket you want to resolve
-issue_key = 'your_issue_key'
+# Update flag to "to be migrated" for records in delta1
+master_df.loc[master_df['record_id'].isin(delta1_df['record_id']), 'flag'] = 'to be migrated'
 
-# Get the issue
-issue = jira.issue(issue_key)
+# Update flag to "removed" for records in delta_removed
+master_df.loc[master_df['record_id'].isin(delta_removed_df['record_id']), 'flag'] = 'removed'
 
-# Resolve the issue
-jira.transition_issue(issue, '5')  # Assuming '5' is the ID for the 'Resolved' status
+# Update flag to "replace" for records in both delta1 and delta_removed
+replace_ids = set(delta1_df['record_id']).intersection(set(delta_removed_df['record_id']))
+master_df.loc[master_df['record_id'].isin(replace_ids), 'flag'] = 'replace'
 
-print(f"Issue {issue_key} has been resolved.")
+# Save the updated master_df if needed
+master_df.to_csv('updated_master.csv', index=False)
