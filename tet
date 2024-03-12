@@ -1,33 +1,24 @@
-import pandas as pd
-from datetime import datetime
+import json
 
-# Read the CSV files into DataFrames
-master_df = pd.read_csv('master.csv')
-delta1_df = pd.read_csv('delta1.csv')
-delta_removed_df = pd.read_csv('delta_removed.csv')
+# Assuming master_df is the final DataFrame after processing
+mapping = {
+    "mappings": {
+        "properties": {}
+    }
+}
 
-# Set the initial flag value to "Not found"
-master_df['flag'] = 'Not found'
+for column in master_df.columns:
+    if master_df[column].dtype == 'int64':
+        mapping["mappings"]["properties"][column] = {"type": "integer"}
+    elif master_df[column].dtype == 'float64':
+        mapping["mappings"]["properties"][column] = {"type": "float"}
+    elif master_df[column].dtype == 'bool':
+        mapping["mappings"]["properties"][column] = {"type": "boolean"}
+    elif master_df[column].dtype == 'datetime64[ns]':
+        mapping["mappings"]["properties"][column] = {"type": "date"}
+    else:
+        mapping["mappings"]["properties"][column] = {"type": "text"}
 
-# Update flag to "to be migrated" for records in delta1
-master_df.loc[master_df['record_id'].isin(delta1_df['record_id']), 'flag'] = 'to be migrated'
-
-# Update flag to "removed" for records in delta_removed
-master_df.loc[master_df['record_id'].isin(delta_removed_df['record_id']), 'flag'] = 'removed'
-
-# Update flag to "replace" for records in both delta1 and delta_removed
-replace_ids = set(delta1_df['record_id']).intersection(set(delta_removed_df['record_id']))
-master_df.loc[master_df['record_id'].isin(replace_ids), 'flag'] = 'replace'
-
-# Update flag to "Newly added" for records in delta1 not present in master or delta_removed
-newly_added_ids = set(delta1_df['record_id']).difference(set(master_df['record_id']).union(set(delta_removed_df['record_id'])))
-master_df.loc[master_df['record_id'].isin(newly_added_ids), 'flag'] = 'Newly added'
-
-# Add actual_mig_date for removed records
-delta_removed_df['actual_mig_date'] = pd.to_datetime(delta_removed_df['timestamp']).dt.date
-delta_removed_dates = dict(zip(delta_removed_df['record_id'], delta_removed_df['actual_mig_date']))
-master_df['actual_mig_date'] = master_df['record_id'].map(delta_removed_dates)
-master_df['actual_mig_date'] = master_df['actual_mig_date'].fillna(datetime.now().date())
-
-# Save the updated master_df if needed
-master_df.to_csv('updated_master.csv', index=False)
+# Convert mapping to JSON
+mapping_json = json.dumps(mapping, indent=4)
+print(mapping_json)
