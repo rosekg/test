@@ -1,24 +1,29 @@
 import json
 
-# Assuming master_df is the final DataFrame after processing
-mapping = {
+# Assuming index_settings is the existing settings dictionary
+index_settings = {
+    "settings": {
+        "number_of_shards": 1,
+        "number_of_replicas": 0
+    },
     "mappings": {
         "properties": {}
     }
 }
 
+# Iterate over columns in master_df to add mapping properties
 for column in master_df.columns:
     if master_df[column].dtype == 'int64':
-        mapping["mappings"]["properties"][column] = {"type": "integer"}
+        index_settings["mappings"]["properties"][column] = {"type": "integer"}
     elif master_df[column].dtype == 'float64':
-        mapping["mappings"]["properties"][column] = {"type": "float"}
+        index_settings["mappings"]["properties"][column] = {"type": "float"}
     elif master_df[column].dtype == 'bool':
-        mapping["mappings"]["properties"][column] = {"type": "boolean"}
+        index_settings["mappings"]["properties"][column] = {"type": "boolean"}
     elif master_df[column].dtype == 'datetime64[ns]':
-        mapping["mappings"]["properties"][column] = {"type": "date"}
+        index_settings["mappings"]["properties"][column] = {"type": "date"}
     else:
-        mapping["mappings"]["properties"][column] = {"type": "text"}
+        index_settings["mappings"]["properties"][column] = {"type": "text"}
 
-# Convert mapping to JSON
-mapping_json = json.dumps(mapping, indent=4)
-print(mapping_json)
+# Convert index_settings to JSON
+index_settings_json = json.dumps(index_settings, indent=4)
+print(index_settings_json)
