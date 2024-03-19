@@ -1,3 +1,68 @@
-Update current date timestamp only for records flagged as "removed" and not found in delta_removed
-removed_ids = master_df[(master_df['flag'] == 'removed') & (~master_df['record_id'].isin(delta_removed_df['record_id']))]['record_id']
-master_df.loc[master_df['record_id'].isin(removed_ids), 'actual_mig_date'] = datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+# Merge df1 and df2 on 'record_id'
+merged_df = df1.merge(df2, on='record_id', suffixes=('', '_old'), how='left')
+
+# Apply a lambda function to compare and update the 'migrate_flag' and 'old_serial_number' columns
+merged_df['migrate_flag'] = merged_df.apply(lambda row: 
+                                            'NO_CHANGE' if row['serial_number'] == row['serial_number_old'] 
+                                            else 'UPDATED' if not pd.isnull(row['serial_number_old']) 
+                                            else 'CREATED', axis=1)
+merged_df['old_serial_number'] = merged_df['serial_number_old']
+
+# Drop the 'serial_number_old' column
+merged_df.drop(columns=['serial_number_old'], inplace=True)
+
+# Update df1 with the updated 'migrate_flag' and 'old_serial_number' columns
+df1 = merged_df[['record_id', 'serial_number', 'migrate_flag', 'old_serial_number']].copy()
+
+# Compare df2 vs df1
+df2['migrate_flag'] = 'DELETED'
+df2.loc[df2['record_id'].isin(df1['record_id']), 'migrate_flag'] = 'NO_CHANGE'
+
+# Print the DataFrames with the added columns
+print("df1:")
+print(df1)
+print("\ndf2:")
+print(df2)
+
+
+# Merge combined_df with df3 on 'name'
+merged_df = combined_df.merge(df3, on='name', suffixes=('', '_cmdb'), how='left')
+
+
+# Define a subfunction to update 'migrate_flag2'
+def update_migrate_flag(row):
+    def check_updated_condition():
+        return not pd.isnull(row['serial_number']) and not pd.isnull(row['serial_number_cmdb']) and row['serial_number'] == row['serial_number_cmdb']
+
+    def check_not_updated_condition():
+        return not pd.isnull(row['serial_number']) and not pd.isnull(row['serial_number_cmdb']) and row['serial_number'] != row['serial_number_cmdb']
+
+    def check_deleted_condition():
+        return not pd.isnull(row['serial_number']) and not pd.isnull(row['serial_number_cmdb']) and row['serial_number'] == row['serial_number_cmdb'] and row['status'] == 'retired'
+
+    def check_not_deleted_condition():
+        return not pd.isnull(row['serial_number']) and not pd.isnull(row['serial_number_cmdb']) and row['serial_number'] != row['serial_number_cmdb'] and row['status'] == 'retired'
+
+    if pd.isnull(row['name_cmdb']):
+        return 'NOT_IN_CMDB'
+    elif row['migrate_flag'] in ['CREATED', 'UPDATED'] and check_updated_condition():
+        return 'UPDATED_IN_CMDB'
+    elif row['migrate_flag'] in ['CREATED', 'UPDATED'] and check_not_updated_condition():
+        return 'NOT_UPDATED_IN_CMDB'
+    elif row['migrate_flag'] == 'DELETED' and check_deleted_condition():
+        return 'UPDATED_IN_CMDB'
+    elif row['migrate_flag'] == 'DELETED' and check_not_deleted_condition():
+        return 'NOT_UPDATED_IN_CMDB'
+    else:
+        return None
+
+# Apply a lambda function to update 'migrate_flag2'
+merged_df['migrate_flag2'] = merged_df.apply(lambda row: update_migrate_flag(row), axis=1)
+
+# Drop the columns used for comparison
+merged_df.drop(columns=['serial_number_cmdb', 'status'], inplace=True)
+
+# Print the updated DataFrame
+print("Updated DataFrame:")
+print(merged_df)
+
