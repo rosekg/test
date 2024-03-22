@@ -1,26 +1,21 @@
-import paramiko
+from fabric import Connection
 
 # SSH connection details
-hostname = 'remote_server_ip'
-port = 22
-username = 'your_username'
+host = 'your_server_ip'
+user = 'your_username'
 password = 'your_password'
 
 # Command to run
 command = 'sed -i "s/no/yes/g" /path/to/config/file'
 
-# Create an SSH client
-client = paramiko.SSHClient()
-client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-
-# Connect to the server
-client.connect(hostname, port, username, password)
+# Create a connection
+conn = Connection(host=host, user=user, connect_kwargs={"password": password})
 
 # Run the command
-stdin, stdout, stderr = client.exec_command(command)
+result = conn.run(command, warn=True)
 
 # Print the output
-print(stdout.read().decode('utf-8'))
+print(result.stdout)
 
 # Close the connection
-client.close()
+conn.close()
