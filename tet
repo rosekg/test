@@ -1,21 +1,20 @@
-from fabric import Connection
+from elasticsearch import Elasticsearch
 
-# SSH connection details
-host = 'your_server_ip'
-user = 'your_username'
-password = 'your_password'
+# Connect to the Elasticsearch cluster
+es = Elasticsearch(["http://your-dev-cluster-url:9200"])
 
-# Command to run
-command = 'sed -i "s/no/yes/g" /path/to/config/file'
+# Disable shard allocation
+body = {
+  "transient": {
+    "cluster.routing.allocation.enable": "none"
+  }
+}
 
-# Create a connection
-conn = Connection(host=host, user=user, connect_kwargs={"password": password})
+# Send the update settings request
+response = es.cluster.put_settings(body=body)
 
-# Run the command
-result = conn.run(command, warn=True)
-
-# Print the output
-print(result.stdout)
-
-# Close the connection
-conn.close()
+# Check the response
+if response.get("acknowledged", False):
+    print("Shard allocation disabled successfully.")
+else:
+    print("Failed to disable shard allocation.")
