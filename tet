@@ -1,5 +1,5 @@
-import sys
 from confluent_kafka import Consumer, KafkaException
+import sys
 
 conf = {
     'bootstrap.servers': "localhost:9092",
@@ -7,38 +7,27 @@ conf = {
     'auto.offset.reset': 'earliest'
 }
 
-def consume_messages(topic):
+def consume_last_message(topic):
     consumer = Consumer(conf)
     consumer.subscribe([topic])
-    total_size = 0
 
     try:
-        while True:
-            msg = consumer.poll(timeout=1.0)
-            if msg is None:
-                continue
-            if msg.error():
-                if msg.error().code() == KafkaError._PARTITION_EOF:
-                    # End of partition, the message is consumed
-                    continue
-                else:
-                    # Handle other errors
-                    print("Error: {}".format(msg.error()))
-                    break
+        # Seek to end of partition
+        partitions = consumer.assignment()
+        consumer.seek(partitions[0], offset=consumer.get_watermark_offsets(partitions[0])[1])
 
-            # Calculate size of message and add to total_size
-            total_size += sys.getsizeof(msg.value())
-
-            # Print the message value
-            print('Message: {}'.format(msg.value().decode('utf-8')))
-
+        # Consume last message
+        msg = consumer.poll(timeout=1.0)
+        if msg is not None and not msg.error():
+            print('Last Message: {}'.format(msg.value().decode('utf-8')))
+    except KafkaException as e:
+        print("KafkaException: {}".format(e))
     except KeyboardInterrupt:
         sys.exit("Consumer interrupted")
 
     finally:
         consumer.close()
-        print(f"Total Size: {total_size} bytes")
 
 if __name__ == '__main__':
     topic = 'my_topic'
-    consume_messages(topic)
+    consume_last_message(topic)
