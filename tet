@@ -1,5 +1,5 @@
-from confluent_kafka import Consumer, KafkaException
 import sys
+from confluent_kafka import Consumer, KafkaException
 
 conf = {
     'bootstrap.servers': "localhost:9092",
@@ -10,6 +10,7 @@ conf = {
 def consume_messages(topic):
     consumer = Consumer(conf)
     consumer.subscribe([topic])
+    total_size = 0
 
     try:
         while True:
@@ -25,13 +26,18 @@ def consume_messages(topic):
                     print("Error: {}".format(msg.error()))
                     break
 
+            # Calculate size of message and add to total_size
+            total_size += sys.getsizeof(msg.value())
+
             # Print the message value
             print('Message: {}'.format(msg.value().decode('utf-8')))
+
     except KeyboardInterrupt:
         sys.exit("Consumer interrupted")
 
     finally:
         consumer.close()
+        print(f"Total Size: {total_size} bytes")
 
 if __name__ == '__main__':
     topic = 'my_topic'
