@@ -1,33 +1,38 @@
-from confluent_kafka import Consumer, KafkaException
-import sys
+from kafka import KafkaConsumer, TopicPartition
 
-conf = {
-    'bootstrap.servers': "localhost:9092",
-    'group.id': "my_consumer_group",
-    'auto.offset.reset': 'earliest'
-}
+# Kafka broker
+bootstrap_servers = 'localhost:9092'
+# Consumer group id
+group_id = 'my_consumer_group'
+# Kafka topic
+topic = 'my_topic'
 
-def consume_last_message(topic):
-    consumer = Consumer(conf)
-    consumer.subscribe([topic])
+# Create a KafkaConsumer
+consumer = KafkaConsumer(
+    group_id=group_id,
+    bootstrap_servers=bootstrap_servers,
+    auto_offset_reset='earliest',  # Start from the earliest message
+    enable_auto_commit=False  # Disable auto commit
+)
 
-    try:
-        # Seek to end of partition
-        partitions = consumer.assignment()
-        consumer.seek(partitions[0], offset=consumer.get_watermark_offsets(partitions[0])[1])
+# Assign the topic and partitions to the consumer
+consumer.assign([TopicPartition(topic, partition) for partition in consumer.partitions_for_topic(topic)])
 
-        # Consume last message
-        msg = consumer.poll(timeout=1.0)
-        if msg is not None and not msg.error():
-            print('Last Message: {}'.format(msg.value().decode('utf-8')))
-    except KafkaException as e:
-        print("KafkaException: {}".format(e))
-    except KeyboardInterrupt:
-        sys.exit("Consumer interrupted")
+# Get the current offsets for each partition
+current_offsets = {tp.partition: tp.offset for tp in consumer.assignment()}
+# Seek to the beginning of each partition
+for tp in consumer.assignment():
+    consumer.seek_to_beginning(tp)
 
-    finally:
-        consumer.close()
+# Get the beginning offsets for each partition
+beginning_offsets = {tp.partition: consumer.position(tp) for tp in consumer.assignment()}
 
-if __name__ == '__main__':
-    topic = 'my_topic'
-    consume_last_message(topic)
+# Calculate the lag for each partition
+lags = {partition: beginning_offsets[partition] - current_offsets.get(partition, 0) for partition in consumer.partitions_for_topic(topic)}
+
+# Print the lags
+for partition, lag in lags.items():
+    print(f"Partition {partition}: Lag = {lag}")
+
+# Close the consumer
+consumer.close()
