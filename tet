@@ -1,48 +1,20 @@
-from datetime import datetime, timedelta
-from elasticsearch import Elasticsearch
-import pandas as pd
+import subprocess
 
-# Elasticsearch settings
-es = Elasticsearch('localhost:9200')
+# Define SSH parameters
+hostname = 'your_hostname'
+username = 'your_username'
 
-# Get today's date and the date a week ago
-today = datetime.now().date()
-last_week = today - timedelta(days=7)
+# SSH command to list files in the home directory
+ssh_command = f'ssh {username}@{hostname} ls -l ~'
 
-# Initialize DataFrame to store results
-results = []
-
-# Get all index names
-indices = es.cat.indices(format='json')
-index_names = [index['index'] for index in indices]
-
-# Loop through each index prefix
-for index_prefix in set([index.split('-')[0] for index in index_names if len(index.split('-')) == 3]):
-    # Loop through each day in the week
-    for i in range(7):
-        # Calculate the date for this iteration
-        date = last_week + timedelta(days=i)
-        
-        # Generate the index name for this date
-        index_name = f"{index_prefix}-{date.strftime('%Y-%m-%d')}"
-        
-        # Check if the index exists
-        if index_name in index_names:
-            # Query Elasticsearch to get the size of the index
-            index_size = es.indices.stats(index=index_name)['indices'][index_name]['total']['store']['size_in_bytes']
-            
-            # Get the index name for the same day of the previous week
-            previous_week_index_name = f"{index_prefix}-{(date - timedelta(days=7)).strftime('%Y-%m-%d')}"
-            
-            # Check if the index from the previous week exists
-            if previous_week_index_name in index_names:
-                # Query Elasticsearch to get the size of the index from the previous week
-                previous_week_index_size = es.indices.stats(index=previous_week_index_name)['indices'][previous_week_index_name]['total']['store']['size_in_bytes']
-                
-                # Compare the sizes and store the result
-                if index_size > previous_week_index_size:
-                    results.append({'index_name': index_name, 'size': index_size, 'previous_week_size': previous_week_index_size})
-
-# Create a DataFrame from the results
-df = pd.DataFrame(results)
-print(df)
+# Execute the SSH command
+try:
+    result = subprocess.run(ssh_command, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    if result.returncode == 0:
+        print("Connected to server successfully!")
+        print("Files in home directory:")
+        print(result.stdout)
+    else:
+        print("An error occurred:", result.stderr)
+except subprocess.CalledProcessError as e:
+    print("An error occurred:", e.stderr)
