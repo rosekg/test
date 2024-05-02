@@ -1,38 +1,32 @@
-from kafka import KafkaConsumer, TopicPartition
+import requests
 
-# Kafka broker
-bootstrap_servers = 'localhost:9092'
-# Consumer group id
-group_id = 'my_consumer_group'
-# Kafka topic
-topic = 'my_topic'
+def get_indices_info():
+    url = "http://localhost:9200/_cat/indices?v&h=index,store.size"
+    response = requests.get(url)
+    if response.status_code == 200:
+        return response.text
+    else:
+        return None
 
-# Create a KafkaConsumer
-consumer = KafkaConsumer(
-    group_id=group_id,
-    bootstrap_servers=bootstrap_servers,
-    auto_offset_reset='earliest',  # Start from the earliest message
-    enable_auto_commit=False  # Disable auto commit
-)
+def calculate_total_disk_space(indices_info):
+    lines = indices_info.splitlines()
+    project_space = {}
+    for line in lines[1:]:
+        parts = line.split()
+        if len(parts) == 2:
+            index_name = parts[0]
+            store_size = parts[1]
+            project_name = index_name.split('_')[0]
+            if project_name in project_space:
+                project_space[project_name] += int(store_size)
+            else:
+                project_space[project_name] = int(store_size)
+    return project_space
 
-# Assign the topic and partitions to the consumer
-consumer.assign([TopicPartition(topic, partition) for partition in consumer.partitions_for_topic(topic)])
-
-# Get the current offsets for each partition
-current_offsets = {tp.partition: tp.offset for tp in consumer.assignment()}
-# Seek to the beginning of each partition
-for tp in consumer.assignment():
-    consumer.seek_to_beginning(tp)
-
-# Get the beginning offsets for each partition
-beginning_offsets = {tp.partition: consumer.position(tp) for tp in consumer.assignment()}
-
-# Calculate the lag for each partition
-lags = {partition: beginning_offsets[partition] - current_offsets.get(partition, 0) for partition in consumer.partitions_for_topic(topic)}
-
-# Print the lags
-for partition, lag in lags.items():
-    print(f"Partition {partition}: Lag = {lag}")
-
-# Close the consumer
-consumer.close()
+indices_info = get_indices_info()
+if indices_info:
+    project_space = calculate_total_disk_space(indices_info)
+    for project, total_space in project_space.items():
+        print(f"Project: {project}, Total Disk Space Consumed: {total_space} bytes")
+else:
+    print("Failed to fetch indices information.")
