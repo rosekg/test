@@ -1,32 +1,22 @@
-import requests
+from elasticsearch import Elasticsearch
 
-def get_indices_info():
-    url = "http://localhost:9200/_cat/indices?v&h=index,store.size"
-    response = requests.get(url)
-    if response.status_code == 200:
-        return response.text
+# Initialize the Elasticsearch client
+es = Elasticsearch(['localhost:9200'])
+
+# Get indices information using the cat.indices API
+indices_info = es.cat.indices(format="json", h="index,store.size")
+
+# Process the indices information to calculate total disk space consumed by each project
+project_space = {}
+for index_data in indices_info:
+    index_name = index_data['index']
+    store_size = index_data['store.size']
+    project_name = index_name.split('_')[0]
+    if project_name in project_space:
+        project_space[project_name] += int(store_size)
     else:
-        return None
+        project_space[project_name] = int(store_size)
 
-def calculate_total_disk_space(indices_info):
-    lines = indices_info.splitlines()
-    project_space = {}
-    for line in lines[1:]:
-        parts = line.split()
-        if len(parts) == 2:
-            index_name = parts[0]
-            store_size = parts[1]
-            project_name = index_name.split('_')[0]
-            if project_name in project_space:
-                project_space[project_name] += int(store_size)
-            else:
-                project_space[project_name] = int(store_size)
-    return project_space
-
-indices_info = get_indices_info()
-if indices_info:
-    project_space = calculate_total_disk_space(indices_info)
-    for project, total_space in project_space.items():
-        print(f"Project: {project}, Total Disk Space Consumed: {total_space} bytes")
-else:
-    print("Failed to fetch indices information.")
+# Print the total disk space consumed by each project
+for project, total_space in project_space.items():
+    print(f"Project: {project}, Total Disk Space Consumed: {total_space} bytes")
