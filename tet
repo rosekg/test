@@ -3,5 +3,9 @@ def convert_to_bytes(size_str):
     size_str = size_str.lower()
     for unit, multiplier in multipliers.items():
         if unit in size_str:
-            return int(size_str.replace(unit, '')) * multiplier
+            size_parts = size_str.replace(unit, '').split('.')
+            if len(size_parts) == 1:
+                return int(size_parts[0]) * multiplier
+            elif len(size_parts) == 2:
+                return int(size_parts[0]) * multiplier + int(size_parts[1]) * multiplier / (10 ** len(size_parts[1]))
     return int(size_str)
