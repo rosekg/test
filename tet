@@ -1,20 +1,25 @@
-import subprocess
+from elasticsearch import Elasticsearch
+from elasticsearch.helpers import reindex
 
-# Define SSH parameters
-hostname = 'your_hostname'
-username = 'your_username'
+# Connect to the Elasticsearch cluster
+es = Elasticsearch(['http://localhost:9200'])
 
-# SSH command to list files in the home directory
-ssh_command = f'ssh {username}@{hostname} ls -l ~'
+# Define the source and destination index names
+source_index = 'source_index_name'
+destination_index = 'destination_index_name'
 
-# Execute the SSH command
-try:
-    result = subprocess.run(ssh_command, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    if result.returncode == 0:
-        print("Connected to server successfully!")
-        print("Files in home directory:")
-        print(result.stdout)
-    else:
-        print("An error occurred:", result.stderr)
-except subprocess.CalledProcessError as e:
-    print("An error occurred:", e.stderr)
+# Define the reindex query
+query = {
+  "source": {
+    "index": source_index
+  },
+  "dest": {
+    "index": destination_index
+  }
+}
+
+# Perform the reindex operation
+response = reindex(es, body=query, request_timeout=600)
+
+# Print the response
+print(response)
