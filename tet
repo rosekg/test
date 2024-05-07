@@ -1,25 +1,37 @@
 from elasticsearch import Elasticsearch
-from elasticsearch.helpers import reindex
+import pandas as pd
+from datetime import datetime, timedelta
 
-# Connect to the Elasticsearch cluster
-es = Elasticsearch(['http://localhost:9200'])
+# Elasticsearch settings
+es = Elasticsearch([{'host': 'localhost', 'port': 9200}])
 
-# Define the source and destination index names
-source_index = 'source_index_name'
-destination_index = 'destination_index_name'
+# Read the daily CSV file containing index names
+df = pd.read_csv('daily_index_names.csv')
 
-# Define the reindex query
-query = {
-  "source": {
-    "index": source_index
-  },
-  "dest": {
-    "index": destination_index
-  }
-}
+# Get today's date
+today = datetime.now().date()
 
-# Perform the reindex operation
-response = reindex(es, body=query, request_timeout=600)
+# Calculate the date after the retention period (8 days)
+retention_date = today - timedelta(days=8)
 
-# Print the response
-print(response)
+# Filter the DataFrame to get indices that will cross the retention date by tomorrow
+indices_to_delete = df[df['index_name'].apply(lambda x: datetime.strptime(x.split('-')[-1], '%Y-%m-%d').date()) <= retention_date + timedelta(days=1)]
+
+# Get the size of each index in the list and the node details
+index_sizes = {}
+for index_name in indices_to_delete['index_name']:
+    index_stats = es.indices.stats(index=index_name)
+    index_size = index_stats['indices'][index_name]['total']['store']['size_in_bytes']
+    node_name = index_stats['_nodes']['successful'].keys()[0]
+    node = index_stats['_nodes']['successful'][node_name]['name']
+    total_store_size = index_stats['_nodes']['total']['store']['size_in_bytes']
+    node_store_size = index_stats['_nodes']['successful'][node_name]['indices'][index_name]['store']['size_in_bytes']
+    node_percentage = (node_store_size / total_store_size) * 100
+    index_sizes[index_name] = {'size': index_size, 'node': node, 'percentage': node_percentage}
+
+# Sort indices by size in ascending order
+sorted_indices = sorted(index_sizes.items(), key=lambda x: x[1]['size'])
+
+# Print the index names, sizes, node details, and percentage of node storage
+for index_name, details in sorted_indices:
+    print(f"Index: {index_name}, Size: {details['size']} bytes, Node: {details['node']}, Percentage of Node Storage: {details['percentage']:.2f}%")
