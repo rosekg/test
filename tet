@@ -5,50 +5,52 @@ from datetime import datetime, timedelta
 # Elasticsearch settings
 es = Elasticsearch([{'host': 'localhost', 'port': 9200}])
 
-# Read the index names and retention periods from the input file
-df = pd.read_csv('index_retention.csv', sep='|', names=['index_name', 'retention'])
+# Read the alias names from the input file
+df = pd.read_csv('alias_names.csv', names=['alias_name'])
 
 # Get today's date
 today = datetime.now().date()
 
-# Get the date after the retention period for daily indices (days) and weekly indices (weeks)
-df['retention_days'] = df['retention'].apply(lambda x: int(x[:-1]) if x[-1] == 'd' else 0)
-df['retention_weeks'] = df['retention'].apply(lambda x: int(x[:-1]) if x[-1] == 'w' else 0)
-df['retention_date'] = df.apply(lambda x: today - timedelta(days=x['retention_days']) if x['retention_days'] > 0 else today, axis=1)
-df['retention_date'] = df.apply(lambda x: today - timedelta(weeks=x['retention_weeks']) if x['retention_weeks'] > 0 else x['retention_date'], axis=1)
+# Define default retention periods for daily and weekly indices
+default_daily_retention = 8
+default_weekly_retention = 2
+
+# Get the retention period for each alias
+def get_retention(alias_name):
+    try:
+        # Check the latest document in the alias to determine the index name
+        index_name = es.indices.get_alias(alias_name).keys()[0]
+
+        # Get the creation date of the latest document in the alias
+        creation_date = es.search(index=index_name, body={"size": 1, "sort": [{"@timestamp": {"order": "desc"}}]})['hits']['hits'][0]['_source']['@timestamp']
+        creation_date = datetime.strptime(creation_date, '%Y-%m-%dT%H:%M:%S.%fZ').date()
+
+        # Calculate the retention date for daily and weekly indices
+        retention_days = (today - creation_date).days
+        retention_weeks = retention_days // 7
+
+        # If retention is empty, NaN, or zero, use default retention periods
+        if pd.isnull(retention_days) or retention_days == 0:
+            retention_days = default_daily_retention
+        if pd.isnull(retention_weeks) or retention_weeks == 0:
+            retention_weeks = default_weekly_retention
+
+        return retention_days, retention_weeks
+    except Exception as e:
+        print(f"Error getting retention for alias {alias_name}: {e}")
+        return None, None
+
+# Get the retention periods for each alias
+df[['retention_days', 'retention_weeks']] = df['alias_name'].apply(lambda x: pd.Series(get_retention(x)))
 
 # Filter the DataFrame to get daily and weekly indices that will cross the retention date by tomorrow
-daily_indices = df[df['retention_days'] > 0]
-weekly_indices = df[df['retention_weeks'] > 0]
-
-daily_indices_to_delete = daily_indices[daily_indices['index_name'].apply(lambda x: datetime.strptime(x.split('-')[-1], '%Y-%m-%d').date()) <= today + timedelta(days=1)]
-weekly_indices_to_delete = weekly_indices[weekly_indices['index_name'].apply(lambda x: datetime.strptime(x.split('-')[0] + '-' + x.split('-')[1], '%Y-%m-%d').date()) <= today + timedelta(weeks=1)]
-
-# Get the size of each index in the list and the node details
-def get_index_size(index_name):
-    try:
-        index_stats = es.indices.stats(index=index_name)
-        index_size = index_stats['indices'][index_name]['total']['store']['size_in_bytes']
-        return index_size
-    except Exception as e:
-        print(f"Error getting size for index {index_name}: {e}")
-        return None
-
-index_sizes_daily = {index_name: get_index_size(index_name) for index_name in daily_indices_to_delete['index_name']}
-index_sizes_weekly = {index_name: get_index_size(index_name) for index_name in weekly_indices_to_delete['index_name']}
-
-# Sort indices by size in ascending order
-sorted_indices_daily = sorted(index_sizes_daily.items(), key=lambda x: x[1] if x[1] is not None else 0)
-sorted_indices_weekly = sorted(index_sizes_weekly.items(), key=lambda x: x[1] if x[1] is not None else 0)
+daily_indices_to_delete = df[df['retention_days'] <= 1]
+weekly_indices_to_delete = df[df['retention_weeks'] <= 1]
 
 # Print the daily indices to delete
 print("Daily Indices to Delete:")
-for index_name, index_size in sorted_indices_daily:
-    if index_size is not None:
-        print(f"Index: {index_name}, Size: {index_size} bytes")
+print(daily_indices_to_delete)
 
 # Print the weekly indices to delete
 print("\nWeekly Indices to Delete:")
-for index_name, index_size in sorted_indices_weekly:
-    if index_size is not None:
-        print(f"Index: {index_name}, Size: {index_size} bytes")
+print(weekly_indices_to_delete)
