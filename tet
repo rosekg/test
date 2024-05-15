@@ -1,50 +1,24 @@
-from datetime import datetime, timedelta
-import pandas as pd
-from elasticsearch import Elasticsearch
+# Sample list of JSON objects
+json_list = [
+    {"Aaa": "value1", "Bbb": "exclude", "Ccc": "value3"},
+    {"Aaa": "value2", "Bbb": "value2", "Ccc": "value4"},
+    {"Aaa": "exclude", "Bbb": "value1", "Ccc": "value5"},
+    {"Aaa": "value3", "Bbb": "value3", "Ccc": "value6"},
+    {"Aaa": "value4", "Bbb": "exclude", "Ccc": "value7"}
+]
 
-# Function to convert retention_days_week to timedelta
-def convert_to_timedelta(retention):
-    if retention.endswith('d'):
-        return timedelta(days=int(retention[:-1]))
-    elif retention.endswith('w'):
-        return timedelta(weeks=int(retention[:-1]))
-    else:
-        raise ValueError("Invalid retention format")
+# Define the keys and values to exclude
+keys_to_exclude = {"Aaa": "exclude", "Bbb": "exclude"}
 
-# Read input index alias file
-input_file = 'index_alias_file.csv'
-df = pd.read_csv(input_file, sep='|', names=['index_alias_name', 'retention_days_week'])
+# Function to check if a JSON object should be excluded
+def should_exclude(json_obj, keys_to_exclude):
+    for key, value in keys_to_exclude.items():
+        if key in json_obj and json_obj[key] == value:
+            return True
+    return False
 
-# Connect to Elasticsearch
-es = Elasticsearch(['localhost'], port=9200)
+# Filter the list of JSON objects
+filtered_json_list = [json_obj for json_obj in json_list if not should_exclude(json_obj, keys_to_exclude)]
 
-# Iterate over index aliases
-for index_alias, retention in zip(df['index_alias_name'], df['retention_days_week']):
-    # Get the full index name based on alias
-    indices = es.indices.get_alias(index_alias).keys()
-    for index in indices:
-        # Determine index pattern
-        if '-' in index:
-            pattern, date_part = index.rsplit('_', 1)
-            date_format = '%Y-%m-%d' if len(date_part) == 10 else '%Y-%W'
-        else:
-            raise ValueError("Unknown index pattern")
-
-        # Check retention
-        if pd.isnull(retention) or retention == '0':
-            retention = '8d' if date_format == '%Y-%m-%d' else '2w'
-        retention_delta = convert_to_timedelta(retention)
-
-        # Get list of indices to be deleted by tomorrow
-        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        tomorrow = today + timedelta(days=1)
-        indices_to_delete = [idx for idx in indices if idx.startswith(pattern) and datetime.strptime(idx.split('_')[1], date_format) < tomorrow - retention_delta]
-
-        # Get index info (node, cluster, size, disk utilization)
-        for idx in indices_to_delete:
-            index_info = es.indices.get(index=idx)
-            node = index_info[idx]['settings']['index']['routing']['allocation']['include']['_name']
-            cluster = index_info[idx]['settings']['index']['routing']['allocation']['require']['cluster_name']
-            size = index_info[idx]['primaries']['store']['size']
-            disk_utilization = (size / node_disk_capacity) * 100  # calculate disk utilization percentage
-            print(f"Index: {idx}, Node: {node}, Cluster: {cluster}, Size: {size}, Disk Utilization: {disk_utilization}%")
+# Print the filtered list
+print(filtered_json_list)
