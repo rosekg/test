@@ -1,44 +1,30 @@
+from kafka.admin import KafkaAdminClient
 from kafka import KafkaConsumer
-from collections import defaultdict
 import json
 
 # Replace with your Kafka settings
 bootstrap_servers = ['your_kafka_broker_1:9092', 'your_kafka_broker_2:9092']
 consumer_group_id = 'your_consumer_group'
-topic = 'your_topic'
 
-def get_servers_from_kafka_messages(bootstrap_servers, consumer_group_id, topic):
-    # Create a Kafka consumer
-    consumer = KafkaConsumer(
-        topic,
-        bootstrap_servers=bootstrap_servers,
-        group_id=consumer_group_id,
-        auto_offset_reset='earliest',  # Adjust based on your needs
-        enable_auto_commit=True
-    )
+def get_consumer_group_details(bootstrap_servers, consumer_group_id):
+    admin_client = KafkaAdminClient(bootstrap_servers=bootstrap_servers)
 
-    servers = defaultdict(int)
-
-    try:
-        for message in consumer:
-            # Assuming the message value contains JSON data with server information
-            message_value = json.loads(message.value.decode('utf-8'))
-            server = message_value.get('server')
-            if server:
-                servers[server] += 1
-
-            # For demo purposes, we limit the number of messages processed
-            if sum(servers.values()) >= 100:  # Process 100 messages then break
-                break
-
-    except Exception as e:
-        print(f"An error occurred: {e}")
-    finally:
-        consumer.close()
-
-    return servers
+    consumer_group_details = admin_client.describe_consumer_groups([consumer_group_id])
+    
+    group_members = consumer_group_details[0].members
+    
+    consumers_info = []
+    
+    for member in group_members:
+        member_info = {
+            "consumer_id": member.member_id,
+            "client_id": member.client_id,
+            "host": member.client_host
+        }
+        consumers_info.append(member_info)
+    
+    return consumers_info
 
 if __name__ == '__main__':
-    servers = get_servers_from_kafka_messages(bootstrap_servers, consumer_group_id, topic)
-    for server, count in servers.items():
-        print(f"Server: {server}, Messages: {count}")
+    consumer_group_info = get_consumer_group_details(bootstrap_servers, consumer_group_id)
+    print(json.dumps(consumer_group_info, indent=4))
