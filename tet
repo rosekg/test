@@ -1,24 +1,44 @@
-# Sample list of JSON objects
-json_list = [
-    {"Aaa": "value1", "Bbb": "exclude", "Ccc": "value3"},
-    {"Aaa": "value2", "Bbb": "value2", "Ccc": "value4"},
-    {"Aaa": "exclude", "Bbb": "value1", "Ccc": "value5"},
-    {"Aaa": "value3", "Bbb": "value3", "Ccc": "value6"},
-    {"Aaa": "value4", "Bbb": "exclude", "Ccc": "value7"}
-]
+from kafka import KafkaConsumer
+from collections import defaultdict
+import json
 
-# Define the keys and values to exclude
-keys_to_exclude = {"Aaa": "exclude", "Bbb": "exclude"}
+# Replace with your Kafka settings
+bootstrap_servers = ['your_kafka_broker_1:9092', 'your_kafka_broker_2:9092']
+consumer_group_id = 'your_consumer_group'
+topic = 'your_topic'
 
-# Function to check if a JSON object should be excluded
-def should_exclude(json_obj, keys_to_exclude):
-    for key, value in keys_to_exclude.items():
-        if key in json_obj and json_obj[key] == value:
-            return True
-    return False
+def get_servers_from_kafka_messages(bootstrap_servers, consumer_group_id, topic):
+    # Create a Kafka consumer
+    consumer = KafkaConsumer(
+        topic,
+        bootstrap_servers=bootstrap_servers,
+        group_id=consumer_group_id,
+        auto_offset_reset='earliest',  # Adjust based on your needs
+        enable_auto_commit=True
+    )
 
-# Filter the list of JSON objects
-filtered_json_list = [json_obj for json_obj in json_list if not should_exclude(json_obj, keys_to_exclude)]
+    servers = defaultdict(int)
 
-# Print the filtered list
-print(filtered_json_list)
+    try:
+        for message in consumer:
+            # Assuming the message value contains JSON data with server information
+            message_value = json.loads(message.value.decode('utf-8'))
+            server = message_value.get('server')
+            if server:
+                servers[server] += 1
+
+            # For demo purposes, we limit the number of messages processed
+            if sum(servers.values()) >= 100:  # Process 100 messages then break
+                break
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+    finally:
+        consumer.close()
+
+    return servers
+
+if __name__ == '__main__':
+    servers = get_servers_from_kafka_messages(bootstrap_servers, consumer_group_id, topic)
+    for server, count in servers.items():
+        print(f"Server: {server}, Messages: {count}")
