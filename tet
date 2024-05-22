@@ -1,30 +1,48 @@
-from kafka.admin import KafkaAdminClient
-from kafka import KafkaConsumer
-import json
+from elasticsearch import Elasticsearch, helpers
 
-# Replace with your Kafka settings
-bootstrap_servers = ['your_kafka_broker_1:9092', 'your_kafka_broker_2:9092']
-consumer_group_id = 'your_consumer_group'
+# Define the source and destination Elasticsearch clusters
+source_host = 'http://source_host:9200'
+destination_host = 'http://destination_host:9200'
 
-def get_consumer_group_details(bootstrap_servers, consumer_group_id):
-    admin_client = KafkaAdminClient(bootstrap_servers=bootstrap_servers)
+# Define the index you want to copy
+index_name = 'your_index_name'
 
-    consumer_group_details = admin_client.describe_consumer_groups([consumer_group_id])
-    
-    group_members = consumer_group_details[0].members
-    
-    consumers_info = []
-    
-    for member in group_members:
-        member_info = {
-            "consumer_id": member.member_id,
-            "client_id": member.client_id,
-            "host": member.client_host
-        }
-        consumers_info.append(member_info)
-    
-    return consumers_info
+# Create Elasticsearch clients for the source and destination clusters with increased timeout
+source_es = Elasticsearch(source_host, timeout=300)
+destination_es = Elasticsearch(destination_host, timeout=300)
 
-if __name__ == '__main__':
-    consumer_group_info = get_consumer_group_details(bootstrap_servers, consumer_group_id)
-    print(json.dumps(consumer_group_info, indent=4))
+# Function to perform reindexing with retry logic
+def reindex_with_slices(source_es, destination_es, index_name, slices, chunk_size, scroll):
+    for slice_id in range(slices):
+        helpers.reindex(
+            client=source_es,
+            body={
+                "source": {
+                    "index": index_name,
+                    "slice": {
+                        "id": slice_id,
+                        "max": slices
+                    }
+                },
+                "dest": {
+                    "index": index_name
+                }
+            },
+            target_client=destination_es,
+            chunk_size=chunk_size,
+            scroll=scroll,
+            request_timeout=300  # Request timeout for the bulk indexing
+        )
+        print(f"Slice {slice_id}/{slices} completed")
+
+# Number of slices (parallel processes)
+num_slices = 5  # Adjust based on your cluster's capacity
+
+# Chunk size for bulk indexing
+chunk_size = 1000  # Adjust based on your environment
+
+# Scroll duration
+scroll = '10m'
+
+# Perform reindexing
+reindex_with_slices(source_es, destination_es, index_name, num_slices, chunk_size, scroll)
