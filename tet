@@ -1,7 +1,6 @@
 from elasticsearch import Elasticsearch
 from datetime import datetime
 import pandas as pd
-import json
 
 # Connect to the Elasticsearch cluster
 es = Elasticsearch(['http://localhost:9200'])
@@ -35,19 +34,25 @@ def expand_json_columns(df):
     new_columns = {}
 
     for column in df.columns:
-        if df[column].apply(lambda x: isinstance(x, list) and all(isinstance(i, dict) for i in x)).all():
-            # Extract JSON keys and create new columns
-            for json_item in df[column].iloc[0]:
-                for key in json_item.keys():
-                    new_column_name = f"{column}.{key}"
-                    new_columns[new_column_name] = df[column].apply(lambda x: [item[key] for item in x])
+        # Check if the column contains nested JSON objects
+        if df[column].apply(lambda x: isinstance(x, dict)).any():
+            # Extract all unique keys from the JSON objects in this column
+            all_keys = set()
+            for json_obj in df[column]:
+                if isinstance(json_obj, dict):
+                    all_keys.update(json_obj.keys())
+
+            # Create new columns for each key
+            for key in all_keys:
+                new_column_name = f"{column}.{key}"
+                new_columns[new_column_name] = df[column].apply(lambda x: x.get(key) if isinstance(x, dict) else None)
 
     # Add new columns to DataFrame
     for new_col, new_values in new_columns.items():
         df[new_col] = new_values
 
-    # Drop the original JSON columns
-    df.drop(columns=[col for col in df.columns if col in new_columns], inplace=True)
+    # Drop the original JSON columns that were expanded
+    df.drop(columns=[col for col in df.columns if col in new_columns.keys()], inplace=True)
 
     return df
 
