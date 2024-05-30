@@ -1,42 +1,74 @@
-from confluent_kafka import Consumer, KafkaException, OFFSET_END
+from elasticsearch import Elasticsearch
+from datetime import datetime
+import pandas as pd
+import json
 
-def create_consumer(config, topic):
-    consumer = Consumer(config)
-    consumer.subscribe([topic], on_assign=on_assign)
-    return consumer
+# Connect to the Elasticsearch cluster
+es = Elasticsearch(['http://localhost:9200'])
 
-def on_assign(consumer, partitions):
-    for partition in partitions:
-        partition.offset = OFFSET_END
-    consumer.assign(partitions)
-
-def consume_latest_messages(consumer, num_messages=10):
-    messages = []
-    while len(messages) < num_messages:
-        msg = consumer.poll(timeout=1.0)
-        if msg is None:
-            continue
-        if msg.error():
-            if msg.error().code() == KafkaException._PARTITION_EOF:
-                continue
-            else:
-                raise KafkaException(msg.error())
-        messages.append(msg.value().decode('utf-8'))
-    return messages
-
-if __name__ == "__main__":
-    config = {
-        'bootstrap.servers': 'your_broker',
-        'group.id': 'your_group',
-        'auto.offset.reset': 'latest',
+def get_latest_records(index_name, keyword):
+    # Define the search query to find records with the keyword and sort them by timestamp
+    query = {
+        "query": {
+            "match": {
+                "content": keyword
+            }
+        },
+        "sort": [
+            {
+                "timestamp": {
+                    "order": "desc"
+                }
+            }
+        ],
+        "size": 10  # Adjust the size as needed
     }
-    topic = 'your_topic'
 
-    consumer = create_consumer(config, topic)
-    
-    try:
-        latest_messages = consume_latest_messages(consumer, 10)
-        for message in latest_messages:
-            print(message)
-    finally:
-        consumer.close()
+    # Execute the search query
+    response = es.search(index=index_name, body=query)
+
+    # Extract the records from the response
+    records = response['hits']['hits']
+    return records
+
+def expand_json_columns(df):
+    new_columns = {}
+
+    for column in df.columns:
+        if df[column].apply(lambda x: isinstance(x, list) and all(isinstance(i, dict) for i in x)).all():
+            # Extract JSON keys and create new columns
+            for json_item in df[column].iloc[0]:
+                for key in json_item.keys():
+                    new_column_name = f"{column}.{key}"
+                    new_columns[new_column_name] = df[column].apply(lambda x: [item[key] for item in x])
+
+    # Add new columns to DataFrame
+    for new_col, new_values in new_columns.items():
+        df[new_col] = new_values
+
+    # Drop the original JSON columns
+    df.drop(columns=[col for col in df.columns if col in new_columns], inplace=True)
+
+    return df
+
+# Define your index name and keyword
+index_name = "your_index_name"
+keyword = "xxxx"
+
+# Get the latest records
+latest_records = get_latest_records(index_name, keyword)
+
+# Extract the source data from the records
+data = [record['_source'] for record in latest_records]
+
+# Create a DataFrame from the data
+df = pd.DataFrame(data)
+
+# Expand JSON columns
+df_expanded = expand_json_columns(df)
+
+# Save the expanded DataFrame to a CSV file
+csv_filename = f'latest_records_{datetime.now().strftime("%Y%m%d%H%M%S")}.csv'
+df_expanded.to_csv(csv_filename, index=False)
+
+print(f"Latest records saved to {csv_filename}")
