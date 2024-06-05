@@ -1,79 +1,99 @@
-from elasticsearch import Elasticsearch
-from datetime import datetime
-import pandas as pd
+import csv
+from elasticsearch import Elasticsearch, helpers
+import time
 
-# Connect to the Elasticsearch cluster
-es = Elasticsearch(['http://localhost:9200'])
+# Initialize Elasticsearch client
+es = Elasticsearch([{'host': 'localhost', 'port': 9200}])
 
-def get_latest_records(index_name, keyword):
-    # Define the search query to find records with the keyword and sort them by timestamp
-    query = {
-        "query": {
-            "match": {
-                "content": keyword
-            }
+# Function to amend the index settings (ILM) in the Elasticsearch index template
+def amend_index_template(template_name, ilm_policy):
+    template_body = {
+        "index_patterns": [f"{template_name}-*"],
+        "settings": {
+            "index.lifecycle.name": ilm_policy,
+            "index.lifecycle.rollover_alias": template_name
         },
-        "sort": [
-            {
-                "timestamp": {
-                    "order": "desc"
-                }
-            }
-        ],
-        "size": 10  # Adjust the size as needed
+        "aliases": {
+            template_name: {}
+        }
     }
+    es.indices.put_template(name=template_name, body=template_body)
+    print(f"Template {template_name} amended with ILM policy {ilm_policy}.")
 
-    # Execute the search query
-    response = es.search(index=index_name, body=query)
+# Function to perform bootstrapping to initialize the index
+def bootstrap_index(index_name, alias_name):
+    index_body = {
+        "aliases": {
+            alias_name: {
+                "is_write_index": True
+            }
+        }
+    }
+    es.indices.create(index=index_name, body=index_body)
+    print(f"Index {index_name} created and aliased with {alias_name}.")
 
-    # Extract the records from the response
-    records = response['hits']['hits']
-    return records
+# Function to perform rollover the index
+def rollover_index(alias_name):
+    rollover_body = {}
+    response = es.indices.rollover(alias=alias_name, body=rollover_body)
+    print(f"Rollover response: {response}")
 
-def expand_json_columns(df):
-    new_columns = {}
+# Function to reindex into new rollover index
+def reindex_data(source_index, dest_index):
+    reindex_body = {
+        "source": {
+            "index": source_index
+        },
+        "dest": {
+            "index": dest_index
+        }
+    }
+    response = es.reindex(body=reindex_body, wait_for_completion=True)
+    print(f"Reindex response: {response}")
 
-    for column in df.columns:
-        # Check if the column contains nested JSON objects
-        if df[column].apply(lambda x: isinstance(x, dict)).any():
-            # Extract all unique keys from the JSON objects in this column
-            all_keys = set()
-            for json_obj in df[column]:
-                if isinstance(json_obj, dict):
-                    all_keys.update(json_obj.keys())
+# Function to remove/delete the previous index after successful rollover
+def delete_index(index_name):
+    es.indices.delete(index=index_name)
+    print(f"Index {index_name} deleted.")
 
-            # Create new columns for each key
-            for key in all_keys:
-                new_column_name = f"{column}.{key}"
-                new_columns[new_column_name] = df[column].apply(lambda x: x.get(key) if isinstance(x, dict) else None)
+# Function to process each template
+def process_template(template_name, ilm_policy):
+    initial_index = f"{template_name}-000001"
+    rollover_alias = template_name
 
-    # Add new columns to DataFrame
-    for new_col, new_values in new_columns.items():
-        df[new_col] = new_values
+    # Amend index template with ILM policy
+    amend_index_template(template_name, ilm_policy)
 
-    # Drop the original JSON columns that were expanded
-    df.drop(columns=[col for col in df.columns if col in new_columns.keys()], inplace=True)
+    # Bootstrap index
+    bootstrap_index(initial_index, rollover_alias)
 
-    return df
+    # Wait for a short while to ensure the index is created
+    time.sleep(2)
 
-# Define your index name and keyword
-index_name = "your_index_name"
-keyword = "xxxx"
+    # Perform rollover
+    rollover_index(rollover_alias)
 
-# Get the latest records
-latest_records = get_latest_records(index_name, keyword)
+    # Define new rollover index name
+    new_rollover_index = f"{template_name}-000002"
 
-# Extract the source data from the records
-data = [record['_source'] for record in latest_records]
+    # Wait for a short while to ensure rollover is complete
+    time.sleep(2)
 
-# Create a DataFrame from the data
-df = pd.DataFrame(data)
+    # Reindex data from the initial index to the new rollover index
+    reindex_data(initial_index, new_rollover_index)
 
-# Expand JSON columns
-df_expanded = expand_json_columns(df)
+    # Wait for a short while to ensure reindexing is complete
+    time.sleep(2)
 
-# Save the expanded DataFrame to a CSV file
-csv_filename = f'latest_records_{datetime.now().strftime("%Y%m%d%H%M%S")}.csv'
-df_expanded.to_csv(csv_filename, index=False)
+    # Delete the initial index
+    delete_index(initial_index)
 
-print(f"Latest records saved to {csv_filename}")
+# Read the list of template names and ILM policies from a CSV file and iterate through each
+csv_file = 'templates.csv'
+
+with open(csv_file, 'r') as file:
+    csv_reader = csv.reader(file)
+    for row in csv_reader:
+        template_name = row[0].split('-')[0]  # Trim index_name from "xxxx-yyyy-ww" to "xxxx"
+        ilm_policy = row[1]  # Get the ILM policy from the second column
+        process_template(template_name, ilm_policy)
