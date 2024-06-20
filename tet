@@ -1,99 +1,36 @@
-import csv
-from elasticsearch import Elasticsearch, helpers
-import time
+import pandas as pd
 
-# Initialize Elasticsearch client
-es = Elasticsearch([{'host': 'localhost', 'port': 9200}])
+# Sample DataFrames
+left_df = pd.DataFrame({
+    'cola': [1, 2, 3, 4],
+    'colb': ['a', 'b', 'c', 'd']
+})
 
-# Function to amend the index settings (ILM) in the Elasticsearch index template
-def amend_index_template(template_name, ilm_policy):
-    template_body = {
-        "index_patterns": [f"{template_name}-*"],
-        "settings": {
-            "index.lifecycle.name": ilm_policy,
-            "index.lifecycle.rollover_alias": template_name
-        },
-        "aliases": {
-            template_name: {}
-        }
-    }
-    es.indices.put_template(name=template_name, body=template_body)
-    print(f"Template {template_name} amended with ILM policy {ilm_policy}.")
+right_df = pd.DataFrame({
+    'cola': [1, 2, 4, 5],
+    'colb': ['a', 'x', 'd', 'e']
+})
 
-# Function to perform bootstrapping to initialize the index
-def bootstrap_index(index_name, alias_name):
-    index_body = {
-        "aliases": {
-            alias_name: {
-                "is_write_index": True
-            }
-        }
-    }
-    es.indices.create(index=index_name, body=index_body)
-    print(f"Index {index_name} created and aliased with {alias_name}.")
+# Merge the DataFrames on 'cola'
+merged_df = left_df.merge(right_df, on='cola', how='outer', suffixes=('_left', '_right'))
 
-# Function to perform rollover the index
-def rollover_index(alias_name):
-    rollover_body = {}
-    response = es.indices.rollover(alias=alias_name, body=rollover_body)
-    print(f"Rollover response: {response}")
+# Define the condition for the update
+def get_status(row):
+    if pd.isna(row['colb_left']) and pd.isna(row['colb_right']):
+        return 'Not present in both'
+    elif pd.isna(row['colb_left']):
+        return 'Added in right'
+    elif pd.isna(row['colb_right']):
+        return 'Deleted in right'
+    elif row['colb_left'] == row['colb_right']:
+        return 'No change'
+    else:
+        return 'Changed'
 
-# Function to reindex into new rollover index
-def reindex_data(source_index, dest_index):
-    reindex_body = {
-        "source": {
-            "index": source_index
-        },
-        "dest": {
-            "index": dest_index
-        }
-    }
-    response = es.reindex(body=reindex_body, wait_for_completion=True)
-    print(f"Reindex response: {response}")
+# Apply the condition
+merged_df['status'] = merged_df.apply(get_status, axis=1)
 
-# Function to remove/delete the previous index after successful rollover
-def delete_index(index_name):
-    es.indices.delete(index=index_name)
-    print(f"Index {index_name} deleted.")
+# Update left DataFrame with the status
+left_df = left_df.merge(merged_df[['cola', 'status']], on='cola', how='left')
 
-# Function to process each template
-def process_template(template_name, ilm_policy):
-    initial_index = f"{template_name}-000001"
-    rollover_alias = template_name
-
-    # Amend index template with ILM policy
-    amend_index_template(template_name, ilm_policy)
-
-    # Bootstrap index
-    bootstrap_index(initial_index, rollover_alias)
-
-    # Wait for a short while to ensure the index is created
-    time.sleep(2)
-
-    # Perform rollover
-    rollover_index(rollover_alias)
-
-    # Define new rollover index name
-    new_rollover_index = f"{template_name}-000002"
-
-    # Wait for a short while to ensure rollover is complete
-    time.sleep(2)
-
-    # Reindex data from the initial index to the new rollover index
-    reindex_data(initial_index, new_rollover_index)
-
-    # Wait for a short while to ensure reindexing is complete
-    time.sleep(2)
-
-    # Delete the initial index
-    delete_index(initial_index)
-
-# Read the list of template names and ILM policies from a CSV file and iterate through each
-csv_file = 'templates.csv'
-
-with open(csv_file, 'r') as file:
-    csv_reader = csv.reader(file)
-    for row in csv_reader:
-        template_name = row[0].split('-')[0]  # Trim index_name from "xxxx-yyyy-ww" to "xxxx"
-        ilm_policy = row[1]  # Get the ILM policy from the second column
-        process_template(template_name, ilm_policy)
+print(left_df)
