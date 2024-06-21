@@ -21,7 +21,20 @@ merged_df['status'] = merged_df['_merge'].map({
     'both': 'No change'
 })
 
-# Select only the necessary columns
-final_df = merged_df[['cola', 'colb', 'status']]
+# Initialize the 'potentially_replaced_by' and 'potentially_replaces' columns
+merged_df['potentially_replaced_by'] = None
+merged_df['potentially_replaces'] = None
 
-print(final_df)
+# Update the 'potentially_replaced_by' and 'potentially_replaces' columns
+for index, row in merged_df.iterrows():
+    cola_value = row['cola']
+    if row['status'] == 'Deleted in right':
+        # Find the new values in the right DataFrame for the same 'cola'
+        new_values = right_df[(right_df['cola'] == cola_value) & (~right_df['colb'].isin(left_df['colb']))]
+        merged_df.at[index, 'potentially_replaced_by'] = ', '.join(new_values['colb'].values)
+    elif row['status'] == 'Added in right':
+        # Find the deleted values in the left DataFrame for the same 'cola'
+        deleted_values = left_df[(left_df['cola'] == cola_value) & (~left_df['colb'].isin(right_df['colb']))]
+        merged_df.at[index, 'potentially_replaces'] = ', '.join(deleted_values['colb'].values)
+
+print(merged_df[['cola', 'colb', 'status', 'potentially_replaced_by', 'potentially_replaces']])
