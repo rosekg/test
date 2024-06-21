@@ -2,35 +2,26 @@ import pandas as pd
 
 # Sample DataFrames
 left_df = pd.DataFrame({
-    'cola': [1, 2, 3, 4],
-    'colb': ['a', 'b', 'c', 'd']
+    'cola': ['S1', 'S1', 'S1', 'S2', 'S2', 'S3'],
+    'colb': ['D1', 'D2', 'D3', 'E1', 'E2', 'E1']
 })
 
 right_df = pd.DataFrame({
-    'cola': [1, 2, 4, 5],
-    'colb': ['a', 'x', 'd', 'e']
+    'cola': ['S1', 'S1', 'S1', 'S2', 'S2', 'S3'],
+    'colb': ['D1', 'D4', 'D5', 'E1', 'E2', 'E2']
 })
 
-# Merge the DataFrames on 'cola'
-merged_df = left_df.merge(right_df, on='cola', how='outer', suffixes=('_left', '_right'))
+# Merge the DataFrames on 'cola' and 'colb'
+merged_df = pd.merge(left_df, right_df, on=['cola', 'colb'], how='outer', indicator=True)
 
-# Define the condition for the update
-def get_status(row):
-    if pd.isna(row['colb_left']) and pd.isna(row['colb_right']):
-        return 'Not present in both'
-    elif pd.isna(row['colb_left']):
-        return 'Added in right'
-    elif pd.isna(row['colb_right']):
-        return 'Deleted in right'
-    elif row['colb_left'] == row['colb_right']:
-        return 'No change'
-    else:
-        return 'Changed'
+# Define the status based on the indicator column
+merged_df['status'] = merged_df['_merge'].map({
+    'left_only': 'Deleted in right',
+    'right_only': 'Added in right',
+    'both': 'No change'
+})
 
-# Apply the condition
-merged_df['status'] = merged_df.apply(get_status, axis=1)
+# Select only the necessary columns
+final_df = merged_df[['cola', 'colb', 'status']]
 
-# Update left DataFrame with the status
-left_df = left_df.merge(merged_df[['cola', 'status']], on='cola', how='left')
-
-print(left_df)
+print(final_df)
