@@ -1,16 +1,47 @@
-package com.example.utils;
+package com.example.consumer;
 
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.common.serialization.StringDeserializer;
+import com.example.utils.JsonParser;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.Duration;
+import java.util.Collections;
+import java.util.Properties;
 
-public class JsonParser {
-    private static final ObjectMapper objectMapper = new ObjectMapper();
+public class KafkaJsonConsumer {
+    private KafkaConsumer<String, String> consumer;
 
-    public static JsonNode parse(String message) throws Exception {
-        return objectMapper.readTree(message);
+    public KafkaJsonConsumer(String bootstrapServers, String groupId, String topic) {
+        Properties consumerProps = new Properties();
+        consumerProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        consumerProps.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
+        consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
+        consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
+
+        this.consumer = new KafkaConsumer<>(consumerProps);
+        this.consumer.subscribe(Collections.singletonList(topic));
     }
 
-    public static String toJsonString(JsonNode jsonNode) throws Exception {
-        return objectMapper.writeValueAsString(jsonNode);
+    public void consumeAndProcess() {
+        try {
+            while (true) {
+                ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
+                for (ConsumerRecord<String, String> record : records) {
+                    String message = record.value();
+                    JsonNode jsonNode = JsonParser.parse(message);
+                    // Process the JSON if needed
+                    String processedMessage = JsonParser.toJsonString(jsonNode);
+                    // Here, you can call a method to send this processedMessage to the producer
+                    System.out.println(processedMessage);
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            consumer.close();
+        }
     }
 }
