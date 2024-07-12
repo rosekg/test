@@ -1,66 +1,16 @@
-import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.clients.consumer.ConsumerRecords;
-import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.common.serialization.StringDeserializer;
-import org.apache.kafka.common.serialization.StringSerializer;
+package com.example.utils;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.time.Duration;
-import java.util.Collections;
-import java.util.Properties;
 
-public class KafkaJsonConsumerProducer {
-    public static void main(String[] args) {
-        String bootstrapServers = "localhost:9092";
-        String groupId = "my-group-id";
-        String inputTopic = "input-topic";
-        String outputTopic = "output-topic";
+public class JsonParser {
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
-        // Consumer configuration
-        Properties consumerProps = new Properties();
-        consumerProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        consumerProps.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
-        consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
-        consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
+    public static JsonNode parse(String message) throws Exception {
+        return objectMapper.readTree(message);
+    }
 
-        // Producer configuration
-        Properties producerProps = new Properties();
-        producerProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        producerProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
-        producerProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
-
-        KafkaConsumer<String, String> consumer = new KafkaConsumer<>(consumerProps);
-        KafkaProducer<String, String> producer = new KafkaProducer<>(producerProps);
-
-        consumer.subscribe(Collections.singletonList(inputTopic));
-
-        ObjectMapper objectMapper = new ObjectMapper();
-
-        try {
-            while (true) {
-                ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
-
-                for (ConsumerRecord<String, String> record : records) {
-                    String message = record.value();
-                    JsonNode jsonNode = objectMapper.readTree(message);
-
-                    // Process the JSON if needed
-                    String processedMessage = jsonNode.toString();
-
-                    // Send the processed message to the output topic
-                    ProducerRecord<String, String> producerRecord = new ProducerRecord<>(outputTopic, processedMessage);
-                    producer.send(producerRecord);
-                }
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            consumer.close();
-            producer.close();
-        }
+    public static String toJsonString(JsonNode jsonNode) throws Exception {
+        return objectMapper.writeValueAsString(jsonNode);
     }
 }
