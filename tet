@@ -1,47 +1,31 @@
-package com.example.consumer;
+package com.example.producer;
 
-import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.clients.consumer.ConsumerRecords;
-import org.apache.kafka.common.serialization.StringDeserializer;
-import com.example.utils.JsonParser;
-import com.fasterxml.jackson.databind.JsonNode;
-import java.time.Duration;
-import java.util.Collections;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.serialization.StringSerializer;
 import java.util.Properties;
 
-public class KafkaJsonConsumer {
-    private KafkaConsumer<String, String> consumer;
+public class KafkaJsonProducer {
+    private KafkaProducer<String, String> producer;
+    private String topic;
 
-    public KafkaJsonConsumer(String bootstrapServers, String groupId, String topic) {
-        Properties consumerProps = new Properties();
-        consumerProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        consumerProps.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
-        consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
-        consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
+    public KafkaJsonProducer(String bootstrapServers, String topic) {
+        Properties producerProps = new Properties();
+        producerProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        producerProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+        producerProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
 
-        this.consumer = new KafkaConsumer<>(consumerProps);
-        this.consumer.subscribe(Collections.singletonList(topic));
+        this.producer = new KafkaProducer<>(producerProps);
+        this.topic = topic;
     }
 
-    public void consumeAndProcess() {
-        try {
-            while (true) {
-                ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
-                for (ConsumerRecord<String, String> record : records) {
-                    String message = record.value();
-                    JsonNode jsonNode = JsonParser.parse(message);
-                    // Process the JSON if needed
-                    String processedMessage = JsonParser.toJsonString(jsonNode);
-                    // Here, you can call a method to send this processedMessage to the producer
-                    System.out.println(processedMessage);
-                }
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            consumer.close();
-        }
+    public void sendMessage(String message) {
+        ProducerRecord<String, String> record = new ProducerRecord<>(topic, message);
+        producer.send(record);
+    }
+
+    public void close() {
+        producer.close();
     }
 }
