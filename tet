@@ -1,31 +1,28 @@
-package com.example.producer;
+package com.example;
 
-import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.common.serialization.StringSerializer;
-import java.util.Properties;
+import com.example.consumer.KafkaJsonConsumer;
+import com.example.producer.KafkaJsonProducer;
 
-public class KafkaJsonProducer {
-    private KafkaProducer<String, String> producer;
-    private String topic;
+public class MainApp {
+    public static void main(String[] args) {
+        String bootstrapServers = "localhost:9092";
+        String groupId = "my-group-id";
+        String inputTopic = "input-topic";
+        String outputTopic = "output-topic";
 
-    public KafkaJsonProducer(String bootstrapServers, String topic) {
-        Properties producerProps = new Properties();
-        producerProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        producerProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
-        producerProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+        KafkaJsonProducer producer = new KafkaJsonProducer(bootstrapServers, outputTopic);
+        KafkaJsonConsumer consumer = new KafkaJsonConsumer(bootstrapServers, groupId, inputTopic);
 
-        this.producer = new KafkaProducer<>(producerProps);
-        this.topic = topic;
-    }
+        // Start consuming and processing messages
+        new Thread(() -> {
+            consumer.consumeAndProcess();
+        }).start();
 
-    public void sendMessage(String message) {
-        ProducerRecord<String, String> record = new ProducerRecord<>(topic, message);
-        producer.send(record);
-    }
+        // Example of sending a message
+        producer.sendMessage("{\"key\": \"value\"}");
 
-    public void close() {
-        producer.close();
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            producer.close();
+        }));
     }
 }
