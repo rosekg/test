@@ -118,4 +118,49 @@ public class KafkaJsonConsumer {
 
 ##########
 
+package com.example.producer;
 
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.clients.producer.RecordMetadata;
+import org.apache.kafka.common.serialization.StringSerializer;
+import org.apache.log4j.Logger;
+import io.confluent.kafka.serializers.KafkaAvroSerializer;
+
+import java.util.Properties;
+import java.util.concurrent.ExecutionException;
+
+public class KafkaJsonProducer {
+    private static final Logger logger = Logger.getLogger(KafkaJsonProducer.class);
+    private final KafkaProducer<String, String> producer;
+    private final String topic;
+
+    public KafkaJsonProducer(String bootstrapServers, String topic, String schemaRegistryUrl) {
+        this.topic = topic;
+
+        Properties props = new Properties();
+        props.put("bootstrap.servers", bootstrapServers);
+        props.put("key.serializer", StringSerializer.class.getName());
+        props.put("value.serializer", KafkaAvroSerializer.class.getName());
+        props.put("schema.registry.url", schemaRegistryUrl);
+
+        this.producer = new KafkaProducer<>(props);
+    }
+
+    public void sendMessage(String message) {
+        try {
+            ProducerRecord<String, String> record = new ProducerRecord<>(topic, message);
+            RecordMetadata metadata = producer.send(record).get();
+            logger.info("Message sent to topic " + metadata.topic() + " partition " + metadata.partition() + " offset " + metadata.offset());
+        } catch (InterruptedException | ExecutionException e) {
+            logger.error("Failed to send message", e);
+        }
+    }
+
+    public void close() {
+        producer.close();
+    }
+}
+
+
+#########
