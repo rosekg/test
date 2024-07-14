@@ -30,3 +30,35 @@ pre.output.topic=pre-output
 ----#№##############
 
 json
+
+package com.example.util;
+
+import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.io.DatumReader;
+import org.apache.avro.io.Decoder;
+import org.apache.avro.io.DecoderFactory;
+import org.apache.avro.specific.SpecificDatumReader;
+import org.apache.log4j.Logger;
+import java.nio.charset.StandardCharsets;
+
+public class JsonParserUtil {
+    private static final Logger logger = Logger.getLogger(JsonParserUtil.class);
+
+    public static String parseAvroMessage(byte[] avroData) {
+        try {
+            DatumReader<GenericRecord> datumReader = new SpecificDatumReader<>();
+            Decoder decoder = DecoderFactory.get().binaryDecoder(avroData, null);
+            GenericRecord genericRecord = datumReader.read(null, decoder);
+            return genericRecord.toString();
+        } catch (Exception e) {
+            logger.error("Failed to parse Avro message", e);
+            return null;
+        }
+    }
+}
+
+
+
+############
+
+
