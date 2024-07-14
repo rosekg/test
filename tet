@@ -1,28 +1,32 @@
-package com.example;
+# Common properties
+kafka.process.flag=true
+send.message.flag=true
 
-import com.example.consumer.KafkaJsonConsumer;
-import com.example.producer.KafkaJsonProducer;
+# Development environment configuration
+dev.bootstrap.servers=dev.kafka.server:9092
+dev.group.id=dev-group
+dev.input.topic=dev-input-topic
+dev.output.topic=dev-output-topic
+dev.schema.registry.url=http://dev.schema.registry:8081
+dev.jaas.config.path=path/to/dev_jaas.conf
 
-public class MainApp {
-    public static void main(String[] args) {
-        String bootstrapServers = "localhost:9092";
-        String groupId = "my-group-id";
-        String inputTopic = "input-topic";
-        String outputTopic = "output-topic";
+# Production environment configuration
+prod.bootstrap.servers=prod.kafka.server:9092
+prod.group.id=prod-group
+prod.input.topic=prod-input-topic
+prod.output.topic=prod-output-topic
+prod.schema.registry.url=http://prod.schema.registry:8081
+prod.jaas.config.path=path/to/prod_jaas.conf
 
-        KafkaJsonProducer producer = new KafkaJsonProducer(bootstrapServers, outputTopic);
-        KafkaJsonConsumer consumer = new KafkaJsonConsumer(bootstrapServers, groupId, inputTopic);
+# Pre-production environment configuration
+pre.bootstrap.servers=pre.kafka.server:9092
+pre.group.id=pre-group
+pre.input.topic=pre-input-topic
+pre.output.topic=pre-output
 
-        // Start consuming and processing messages
-        new Thread(() -> {
-            consumer.consumeAndProcess();
-        }).start();
 
-        // Example of sending a message
-        producer.sendMessage("{\"key\": \"value\"}");
 
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            producer.close();
-        }));
-    }
-}
+
+----#№##############
+
+json
