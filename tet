@@ -1,9 +1,35 @@
-private static String convertTimestampByteArray(byte[] byteArray) {
-        // Assuming the byte array represents a long timestamp in milliseconds since epoch
-        ByteBuffer buffer = ByteBuffer.wrap(byteArray);
-        long timestamp = buffer.getLong();
-        Instant instant = Instant.ofEpochMilli(timestamp);
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
-                                                       .withZone(ZoneId.systemDefault());
-        return formatter.format(instant);
+import javax.security.auth.login.AppConfigurationEntry;
+import javax.security.auth.login.Configuration;
+import java.util.HashMap;
+import java.util.Map;
+
+public class CustomKrb5Configuration extends Configuration {
+
+    private final String krb5ConfPath;
+    private final String jaasConfPath;
+
+    public CustomKrb5Configuration(String krb5ConfPath, String jaasConfPath) {
+        this.krb5ConfPath = krb5ConfPath;
+        this.jaasConfPath = jaasConfPath;
     }
+
+    @Override
+    public AppConfigurationEntry[] getAppConfigurationEntry(String name) {
+        System.setProperty("java.security.krb5.conf", krb5ConfPath);
+        System.setProperty("java.security.auth.login.config", jaasConfPath);
+
+        Map<String, String> options = new HashMap<>();
+        options.put("useKeyTab", "true");
+        options.put("storeKey", "true");
+        options.put("doNotPrompt", "true");
+        options.put("keyTab", "/path/to/keytab");
+        options.put("principal", "principal@YOUR_REALM");
+        options.put("refreshKrb5Config", "true");
+
+        return new AppConfigurationEntry[]{
+                new AppConfigurationEntry("com.sun.security.auth.module.Krb5LoginModule",
+                        AppConfigurationEntry.LoginModuleControlFlag.REQUIRED,
+                        options)
+        };
+    }
+}
