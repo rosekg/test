@@ -1,64 +1,27 @@
-import java.io.*;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.Properties;
 import org.apache.log4j.Logger;
-import org.apache.log4j.PropertyConfigurator;
-import org.apache.log4j.FileAppender;
 
-public class Log4jDynamicFileName {
+public class RuntimeConfig {
 
-    private static final Logger logger = Logger.getLogger(Log4jDynamicFileName.class);
+    private static final Logger logger = Logger.getLogger(RuntimeConfig.class);
 
-    public static void main(String[] args) {
-        if (args.length < 3) {
-            System.out.println("Please provide at least 3 arguments.");
-            return;
-        }
+    private String arg1;
+    private String arg2;
 
-        // Construct the new log file name
-        String newLogFileName = "logs/my-log-file_" + args[0] + "_" + args[1] + "_" + args[2] + ".log";
+    public RuntimeConfig(String arg1, String arg2) {
+        this.arg1 = arg1;
+        this.arg2 = arg2;
+    }
 
-        try {
-            // Read the log4j.properties file from the resources folder
-            InputStream inputStream = Log4jDynamicFileName.class.getClassLoader().getResourceAsStream("log4j.properties");
-            if (inputStream == null) {
-                System.out.println("Log4j properties file not found.");
-                return;
-            }
+    public static RuntimeConfig initializeVariables(String[] args) {
+        String arg1 = args.length > 0 ? args[0] : "default1";
+        String arg2 = args.length > 1 ? args[1] : "default2";
 
-            // Load properties
-            Properties properties = new Properties();
-            properties.load(inputStream);
+        logger.info("Runtime arguments initialized: arg1=" + arg1 + ", arg2=" + arg2);
+        return new RuntimeConfig(arg1, arg2);
+    }
 
-            // Replace the filename in the properties
-            String oldLogFileName = properties.getProperty("log4j.appender.file.File");
-            properties.setProperty("log4j.appender.file.File", newLogFileName);
-
-            // Save the updated properties to a temporary file
-            File tempFile = File.createTempFile("log4j", ".properties");
-            try (OutputStream outputStream = new FileOutputStream(tempFile)) {
-                properties.store(outputStream, null);
-            }
-
-            // Reconfigure log4j with the updated properties
-            PropertyConfigurator.configure(tempFile.getAbsolutePath());
-
-            // Log messages to test the updated configuration
-            logger.info("Log file name set dynamically: " + newLogFileName);
-            logger.info("Application started");
-
-            for (int i = 0; i < 5; i++) {
-                logger.debug("Processing item " + i);
-            }
-
-            logger.info("Application finished");
-
-            // Clean up temporary file
-            tempFile.delete();
-
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+    @Override
+    public String toString() {
+        return "arg1=" + arg1 + ", arg2=" + arg2;
     }
 }
