@@ -1,27 +1,42 @@
-import org.apache.log4j.Logger;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
-public class RuntimeConfig {
+public class FileWriterModule {
 
-    private static final Logger logger = Logger.getLogger(RuntimeConfig.class);
+    private final FileWriter fileWriter;
+    private final List<String> dataBuffer;
+    private final boolean writeCsv;
 
-    private String arg1;
-    private String arg2;
-
-    public RuntimeConfig(String arg1, String arg2) {
-        this.arg1 = arg1;
-        this.arg2 = arg2;
+    public FileWriterModule(String fileName, boolean writeCsv) throws IOException {
+        this.writeCsv = writeCsv;
+        String extension = writeCsv ? ".csv" : ".json";
+        this.fileWriter = new FileWriter(fileName + extension, true);
+        this.dataBuffer = new ArrayList<>();
     }
 
-    public static RuntimeConfig initializeVariables(String[] args) {
-        String arg1 = args.length > 0 ? args[0] : "default1";
-        String arg2 = args.length > 1 ? args[1] : "default2";
-
-        logger.info("Runtime arguments initialized: arg1=" + arg1 + ", arg2=" + arg2);
-        return new RuntimeConfig(arg1, arg2);
+    public void addData(String jsonMessage) {
+        if (writeCsv) {
+            dataBuffer.add(jsonMessage.replace(",", ";")); // Replace commas for CSV
+        } else {
+            dataBuffer.add(jsonMessage);
+        }
     }
 
-    @Override
-    public String toString() {
-        return "arg1=" + arg1 + ", arg2=" + arg2;
+    public void flushData() throws IOException {
+        for (String data : dataBuffer) {
+            fileWriter.append(data).append("\n");
+        }
+        fileWriter.flush();
+        dataBuffer.clear();
+    }
+
+    public void close() {
+        try {
+            fileWriter.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }
