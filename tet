@@ -1,42 +1,64 @@
-import java.io.FileWriter;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
+Objective
+To develop a Kafka consumer-producer application for the Cloudera_Exit project, capable of consuming messages in JSON format, parsing them with Avro, and producing them to another Kafka topic. This application should also support Kerberos authentication and have configurable logging and debugging options.
 
-public class FileWriterModule {
+Overview
+The application will:
 
-    private final FileWriter fileWriter;
-    private final List<String> dataBuffer;
-    private final boolean writeCsv;
+Consume messages from a specified Kafka topic.
+Parse the messages using Avro schemas.
+Produce the parsed data to another Kafka topic.
+Handle Kerberos authentication and secure communication.
+Log application activities and write debug information based on configuration.
+Data Flow
+Kafka Consumer: Connects to the source Kafka topic and reads messages in JSON format.
+JSON Avro Parser: Parses incoming JSON messages using Avro schemas.
+Kafka Producer: Sends parsed messages to the destination Kafka topic.
+Logging: Captures detailed logs of processing steps.
+Debug Output: Writes consumed messages to output files if debugging is enabled.
+Configurations
+JAAS Configuration
+Purpose: To authenticate Kafka clients using Kerberos.
+File Location: /path/to/kafka_client_jaas.conf
+plaintext
+Copy code
+KafkaClient {
+   com.sun.security.auth.module.Krb5LoginModule required
+   useKeyTab=true
+   keyTab="/path/to/user.keytab"
+   storeKey=true
+   useTicketCache=false
+   principal="user@REALM";
+};
+KRB5 File Configuration
+Purpose: To configure Kerberos client settings.
+File Location: /etc/krb5.conf
+plaintext
+Copy code
+[libdefaults]
+    default_realm = REALM
+    dns_lookup_realm = false
+    dns_lookup_kdc = true
 
-    public FileWriterModule(String fileName, boolean writeCsv) throws IOException {
-        this.writeCsv = writeCsv;
-        String extension = writeCsv ? ".csv" : ".json";
-        this.fileWriter = new FileWriter(fileName + extension, true);
-        this.dataBuffer = new ArrayList<>();
+[realms]
+    REALM = {
+        kdc = kdc.example.com
+        admin_server = admin.example.com
     }
-
-    public void addData(String jsonMessage) {
-        if (writeCsv) {
-            dataBuffer.add(jsonMessage.replace(",", ";")); // Replace commas for CSV
-        } else {
-            dataBuffer.add(jsonMessage);
-        }
-    }
-
-    public void flushData() throws IOException {
-        for (String data : dataBuffer) {
-            fileWriter.append(data).append("\n");
-        }
-        fileWriter.flush();
-        dataBuffer.clear();
-    }
-
-    public void close() {
-        try {
-            fileWriter.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-}
+Trusted Source and Configuration
+SSL/TLS Configuration: Enable SSL to secure Kafka communications.
+File Location: /path/to/truststore.jks
+Configuration Example:
+properties
+Copy code
+security.protocol=SASL_SSL
+sasl.mechanism=GSSAPI
+ssl.truststore.location=/path/to/truststore.jks
+ssl.truststore.password=truststore-password
+Application Logs Storage Details
+Log Framework: Log4j
+Log Directory: /var/log/cloudera_exit
+Log Rotation: Daily rotation with a retention period of 7 days.
+Output File Write Details
+Debugging Flag: Enable debug output by setting debug.enabled=true in the configuration file.
+Output Directory: /path/to/debug/output
+File Naming Convention: consumed_messages_yyyyMMdd.log
