@@ -5,18 +5,15 @@ input_file="yourfile.csv"
 
 # Use awk to process the file
 awk -F, '
-BEGIN { OFS = "," }
+BEGIN { OFS = "|" }
 {
-    # Replace \n and \r in each field
+    # Process each field
     for(i = 1; i <= NF; i++) {
+        # Remove quotes
+        gsub(/"/, "", $i)
+        # Replace \n and \r
         gsub(/\\n|\\r/, "", $i)
     }
-    
-    # Replace the last column's value with an empty string if it's "description"
-    if ($NF == "description") {
-        $NF = ""
-    }
-    
     print
 }' "$input_file" > temp.csv
 
