@@ -14,11 +14,9 @@ BEGIN { OFS = "|" }
         # Replace \n and \r
         gsub(/\\n|\\r/, "", $i)
     }
-    # Remove quotes from the last field
-    gsub(/"/, "", $NF)
-    # Replace \n and \r in the last field
+    # Handle the last field separately for newlines and carriage returns
     gsub(/\\n|\\r/, "", $NF)
-    
+
     print
 }' "$input_file" > temp.csv
 
