@@ -13,7 +13,13 @@ BEGIN { OFS = "|" }
     # Loop through each field
     for (i = 1; i <= NF; i++) {
         # Replace commas inside quotes with semicolons
-        gsub(/"[^"]*,[^"]*"/, function(m) { return gensub(/,/, ";", "g", m) }, $i)
+        while (match($i, /"[^"]*,[^"]*"/)) {
+            match_str = substr($i, RSTART, RLENGTH)
+            # Replace commas with semicolons within the matched string
+            modified_str = gensub(/,/, ";", "g", match_str)
+            # Replace the original match with the modified string
+            $i = substr($i, 1, RSTART - 1) modified_str substr($i, RSTART + RLENGTH)
+        }
         # Remove quotes
         gsub(/"/, "", $i)
         # Replace remaining commas with pipes
