@@ -1,64 +1,24 @@
-Objective
-To develop a Kafka consumer-producer application for the Cloudera_Exit project, capable of consuming messages in JSON format, parsing them with Avro, and producing them to another Kafka topic. This application should also support Kerberos authentication and have configurable logging and debugging options.
+#!/bin/bash
 
-Overview
-The application will:
+# Input CSV file
+input_file="yourfile.csv"
 
-Consume messages from a specified Kafka topic.
-Parse the messages using Avro schemas.
-Produce the parsed data to another Kafka topic.
-Handle Kerberos authentication and secure communication.
-Log application activities and write debug information based on configuration.
-Data Flow
-Kafka Consumer: Connects to the source Kafka topic and reads messages in JSON format.
-JSON Avro Parser: Parses incoming JSON messages using Avro schemas.
-Kafka Producer: Sends parsed messages to the destination Kafka topic.
-Logging: Captures detailed logs of processing steps.
-Debug Output: Writes consumed messages to output files if debugging is enabled.
-Configurations
-JAAS Configuration
-Purpose: To authenticate Kafka clients using Kerberos.
-File Location: /path/to/kafka_client_jaas.conf
-plaintext
-Copy code
-KafkaClient {
-   com.sun.security.auth.module.Krb5LoginModule required
-   useKeyTab=true
-   keyTab="/path/to/user.keytab"
-   storeKey=true
-   useTicketCache=false
-   principal="user@REALM";
-};
-KRB5 File Configuration
-Purpose: To configure Kerberos client settings.
-File Location: /etc/krb5.conf
-plaintext
-Copy code
-[libdefaults]
-    default_realm = REALM
-    dns_lookup_realm = false
-    dns_lookup_kdc = true
-
-[realms]
-    REALM = {
-        kdc = kdc.example.com
-        admin_server = admin.example.com
+# Use awk to process the file
+awk -F, '
+BEGIN { OFS = "," }
+{
+    # Replace \n and \r in each field
+    for(i = 1; i <= NF; i++) {
+        gsub(/\\n|\\r/, "", $i)
     }
-Trusted Source and Configuration
-SSL/TLS Configuration: Enable SSL to secure Kafka communications.
-File Location: /path/to/truststore.jks
-Configuration Example:
-properties
-Copy code
-security.protocol=SASL_SSL
-sasl.mechanism=GSSAPI
-ssl.truststore.location=/path/to/truststore.jks
-ssl.truststore.password=truststore-password
-Application Logs Storage Details
-Log Framework: Log4j
-Log Directory: /var/log/cloudera_exit
-Log Rotation: Daily rotation with a retention period of 7 days.
-Output File Write Details
-Debugging Flag: Enable debug output by setting debug.enabled=true in the configuration file.
-Output Directory: /path/to/debug/output
-File Naming Convention: consumed_messages_yyyyMMdd.log
+    
+    # Replace the last column's value with an empty string if it's "description"
+    if ($NF == "description") {
+        $NF = ""
+    }
+    
+    print
+}' "$input_file" > temp.csv
+
+# Overwrite the original file with the modified data
+mv temp.csv "$input_file"
