@@ -7,19 +7,14 @@ input_file="yourfile.csv"
 temp_file="temp.csv"
 
 # Use awk to process the file
-awk -F, '
-BEGIN { OFS = "," }
+awk '
+BEGIN { ORS = "" }
 {
-    # Process all fields except the last one normally
-    for (i = 1; i < NF; i++) {
-        # Remove quotes
-        gsub(/"/, "", $i)
-        # Replace \n and \r
-        gsub(/\\n|\\r/, "", $i)
-    }
-    # Handle the last field separately
-    gsub(/\r|\n/, "", $NF)
-    print
+    # Replace newlines within quotes with a space
+    gsub(/"\n/, "\" ")
+    gsub(/\n"/, " \"")
+    gsub(/\n/, " ")
+    print $0 "\n"
 }' "$input_file" > "$temp_file"
 
 # Overwrite the original file with the modified data
