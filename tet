@@ -3,22 +3,24 @@
 # Input CSV file
 input_file="yourfile.csv"
 
+# Temporary file
+temp_file="temp.csv"
+
 # Use awk to process the file
 awk -F, '
 BEGIN { OFS = "|" }
 {
-    # Process each field except the last one
-    for(i = 1; i < NF; i++) {
+    # Loop through each field
+    for (i = 1; i <= NF; i++) {
+        # Replace commas inside quotes with semicolons
+        gsub(/"[^"]*,[^"]*"/, function(m) { return gensub(/,/, ";", "g", m) }, $i)
         # Remove quotes
         gsub(/"/, "", $i)
-        # Replace \n and \r
-        gsub(/\\n|\\r/, "", $i)
+        # Replace remaining commas with pipes
+        gsub(/,/, "|", $i)
     }
-    # Handle the last field separately for newlines and carriage returns
-    gsub(/\\n|\\r/, "", $NF)
-
     print
-}' "$input_file" > temp.csv
+}' "$input_file" > "$temp_file"
 
 # Overwrite the original file with the modified data
-mv temp.csv "$input_file"
+mv "$temp_file" "$input_file"
