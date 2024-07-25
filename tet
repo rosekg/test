@@ -7,13 +7,18 @@ input_file="yourfile.csv"
 awk -F, '
 BEGIN { OFS = "|" }
 {
-    # Process each field
-    for(i = 1; i <= NF; i++) {
+    # Process each field except the last one
+    for(i = 1; i < NF; i++) {
         # Remove quotes
         gsub(/"/, "", $i)
         # Replace \n and \r
         gsub(/\\n|\\r/, "", $i)
     }
+    # Remove quotes from the last field
+    gsub(/"/, "", $NF)
+    # Replace \n and \r in the last field
+    gsub(/\\n|\\r/, "", $NF)
+    
     print
 }' "$input_file" > temp.csv
 
