@@ -1,5 +1,22 @@
-awk -F'|' 'BEGIN {OFS="|"} {
-    for (i=1; i<=13; i++) printf "%s%s", $i, (i < 13 ? OFS : "")
-    for (i=14; i<=NF; i++) printf "%s%s", $i, (i < NF ? "," : "")
-    print ""
-}' yourfile.txt
+#!/bin/bash
+
+# Input file
+input_file="yourfile.csv"
+
+# Temporary file
+temp_file="temp.csv"
+
+# Use awk to process the file
+awk '
+BEGIN { ORS = "" }
+{
+    # Replace \n and \r
+    gsub(/\r/, "")
+    gsub(/\n/, "")
+    # Print lines without line breaks
+    print $0
+    if (NR > 1) print "\n"
+}' "$input_file" > "$temp_file"
+
+# Overwrite the original file with the modified data
+mv "$temp_file" "$input_file"
