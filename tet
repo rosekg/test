@@ -1,32 +1,5 @@
-#!/bin/bash
-
-# Input CSV file
-input_file="yourfile.csv"
-
-# Temporary file
-temp_file="temp.csv"
-
-# Use awk to process the file
-awk -F, '
-BEGIN { OFS = "|" }
-{
-    # Loop through each field
-    for (i = 1; i <= NF; i++) {
-        # Replace commas inside quotes with semicolons
-        while (match($i, /"[^"]*,[^"]*"/)) {
-            match_str = substr($i, RSTART, RLENGTH)
-            # Replace commas with semicolons within the matched string
-            modified_str = gensub(/,/, ";", "g", match_str)
-            # Replace the original match with the modified string
-            $i = substr($i, 1, RSTART - 1) modified_str substr($i, RSTART + RLENGTH)
-        }
-        # Remove quotes
-        gsub(/"/, "", $i)
-        # Replace remaining commas with pipes
-        gsub(/,/, "|", $i)
-    }
-    print
-}' "$input_file" > "$temp_file"
-
-# Overwrite the original file with the modified data
-mv "$temp_file" "$input_file"
+awk -F'|' 'BEGIN {OFS="|"} {
+    for (i=1; i<=13; i++) printf "%s%s", $i, (i < 13 ? OFS : "")
+    for (i=14; i<=NF; i++) printf "%s%s", $i, (i < NF ? "," : "")
+    print ""
+}' yourfile.txt
