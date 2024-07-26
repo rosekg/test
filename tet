@@ -7,16 +7,16 @@ process_file() {
     input_file="$1"
     output_file="$2"
 
-    awk -v OFS='|' '
-    BEGIN { FS="," }
-    {
-        for (i = 1; i < NF; i++) {
-            gsub(/\n/, "", $i)
-            gsub(/"/, "", $i)
-        }
-        $NF = gensub(/"/, "", "g", $NF)
-        print $0
-    }' "$input_file" > "$output_file"
+    while IFS= read -r line || [ -n "$line" ]; do
+        # Remove quotes and newlines from fields except the last one
+        fields=$(echo "$line" | awk -v RS=',' -v ORS='|' 'NR < NF {gsub(/"/, ""); gsub(/\n/, ""); print}')
+        
+        # Process the last field separately to preserve internal commas
+        last_field=$(echo "$line" | awk -F',' '{gsub(/"/, "", $NF); gsub(/\n/, "", $NF); print $NF}')
+
+        # Combine and output the processed line
+        echo "${fields}${last_field}" >> "$output_file"
+    done < "$input_file"
 }
 
 while true; do
