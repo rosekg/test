@@ -1,25 +1,37 @@
-import csv
+#!/bin/bash
 
-# Sample data as a string
-data = '''"hi","hello","hey\n/hey\n//hey"
-"hii","hellol","hi\n/hi\n//hiiii"'''
+input_directory="input_directory"
+output_directory="output_directory"
 
-# Process the data
-def process_data(data):
-    # Read data into a list
-    reader = csv.reader(data.splitlines())
-    
-    # Prepare processed data
-    processed_records = []
-    
-    for row in reader:
-        # Remove newline characters from each field
-        processed_row = [field.replace('\n', '').replace('\r', '') for field in row]
-        processed_records.append(processed_row)
-    
-    return processed_records
+process_file() {
+    input_file="$1"
+    output_file="$2"
 
-# Process and display the data
-processed_data = process_data(data)
-for record in processed_data:
-    print(record)
+    awk -v OFS='|' '
+    BEGIN { FS="," }
+    {
+        for (i = 1; i < NF; i++) {
+            gsub(/\n/, "", $i)
+            gsub(/"/, "", $i)
+        }
+        $NF = gensub(/"/, "", "g", $NF)
+        print $0
+    }' "$input_file" > "$output_file"
+}
+
+while true; do
+    for filepath in "$input_directory"/*.csv; do
+        if [ -f "$filepath" ]; then
+            filename=$(basename "$filepath")
+            output_filepath="$output_directory/processed_$filename"
+
+            process_file "$filepath" "$output_filepath"
+
+            # Move processed file to avoid reprocessing
+            mv "$filepath" "$input_directory/processed_$filename"
+        fi
+    done
+
+    # Wait for 5 minutes
+    sleep 300
+done
