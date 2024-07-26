@@ -1,21 +1,41 @@
 #!/bin/bash
 
-# Input file
-input_file="yourfile.csv"
+# Input and output files
+input_file="input.csv"
+output_file="output.csv"
 
-# Temporary file
-temp_file="temp.csv"
-
-# Use awk to process the file
+# Process the file using awk
 awk '
-BEGIN { ORS = "" }
+BEGIN { 
+    FS="\",\""; 
+    OFS="\",\""; 
+    ORS="\n"; 
+    header_printed=0 
+}
 {
-    # Replace newlines within quotes with a space
-    gsub(/"\n/, "\" ")
-    gsub(/\n"/, " \"")
-    gsub(/\n/, " ")
-    print $0 "\n"
-}' "$input_file" > "$temp_file"
+    # Remove leading and trailing quotes
+    sub(/^"/, "", $1);
+    sub(/"$/, "", $NF);
 
-# Overwrite the original file with the modified data
-mv "$temp_file" "$input_file"
+    # Iterate over each column
+    for (i = 1; i <= NF; i++) {
+        # Remove \n and \r from each column value
+        gsub(/[\n\r]/, " ", $i)
+    }
+
+    # Print header once
+    if (!header_printed) {
+        print "Column1","Column2","Column3","Column4","Column5","Column6","Column7","Column8","Column9","Column10","Column11","Column12","Column13","Column14"
+        header_printed = 1
+    }
+
+    # Ensure there are 14 columns
+    if (NF == 14) {
+        print "\"" $0 "\""
+    } else {
+        print "Skipping line with incorrect number of columns: " $0 > "/dev/stderr"
+    }
+}
+' "$input_file" > "$output_file"
+
+echo "Processing complete. Check the output file: $output_file"
