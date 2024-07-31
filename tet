@@ -17,16 +17,14 @@ def parse_control_m_xml(xml_file):
 
         # Extract all child elements and their text/attributes
         for elem in job:
-            if elem.text and elem.text.strip():
+            if elem.tag in ['VARIABLE', 'INCOND', 'OUTCOND']:
+                # Handle nested elements like VARIABLE, INCOND, and OUTCOND
+                if elem.tag not in job_info:
+                    job_info[elem.tag] = []
+                nested_item = {f"{elem.tag}_{k}": v for k, v in elem.attrib.items()}
+                job_info[elem.tag].append(nested_item)
+            elif elem.text and elem.text.strip():
                 job_info[elem.tag] = elem.text.strip()
-            else:
-                # Handle nested elements like INCOND and OUTCOND
-                nested_data = []
-                for nested_elem in elem:
-                    nested_item = {f"{nested_elem.tag}_{k}": v for k, v in nested_elem.attrib.items()}
-                    nested_data.append(nested_item)
-                if nested_data:
-                    job_info[elem.tag] = nested_data
 
         job_data.append(job_info)
 
@@ -45,7 +43,19 @@ def read_folder_and_parse_xml(directory):
     return all_job_data
 
 def save_to_csv(job_data, output_csv):
-    df = pd.json_normalize(job_data)
+    # Flatten the nested fields (VARIABLE, INCOND, OUTCOND) using pandas.json_normalize
+    flat_data = []
+    for job in job_data:
+        flat_job = {}
+        for key, value in job.items():
+            if isinstance(value, list):
+                for item in value:
+                    flat_job.update(item)
+            else:
+                flat_job[key] = value
+        flat_data.append(flat_job)
+    
+    df = pd.DataFrame(flat_data)
     df.to_csv(output_csv, index=False)
 
 if __name__ == "__main__":
