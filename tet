@@ -1,37 +1,56 @@
-#!/bin/bash
+import os
+import xml.etree.ElementTree as ET
+import pandas as pd
 
-input_directory="input_directory"
-output_directory="output_directory"
+def parse_control_m_xml(xml_file):
+    tree = ET.parse(xml_file)
+    root = tree.getroot()
 
-process_file() {
-    input_file="$1"
-    output_file="$2"
+    job_data = []
+    
+    for job in root.findall('.//JOB'):
+        job_info = {}
 
-    while IFS= read -r line || [ -n "$line" ]; do
-        # Remove quotes and newlines from fields except the last one
-        fields=$(echo "$line" | awk -v RS=',' -v ORS='|' 'NR < NF {gsub(/"/, ""); gsub(/\n/, ""); print}')
-        
-        # Process the last field separately to preserve internal commas
-        last_field=$(echo "$line" | awk -F',' '{gsub(/"/, "", $NF); gsub(/\n/, "", $NF); print $NF}')
+        # Extract all attributes of the job
+        for attr, value in job.attrib.items():
+            job_info[attr] = value
 
-        # Combine and output the processed line
-        echo "${fields}${last_field}" >> "$output_file"
-    done < "$input_file"
-}
+        # Extract all child elements and their text/attributes
+        for elem in job:
+            if elem.text and elem.text.strip():
+                job_info[elem.tag] = elem.text.strip()
+            else:
+                # Handle nested elements like INCOND and OUTCOND
+                nested_data = []
+                for nested_elem in elem:
+                    nested_item = {f"{nested_elem.tag}_{k}": v for k, v in nested_elem.attrib.items()}
+                    nested_data.append(nested_item)
+                if nested_data:
+                    job_info[elem.tag] = nested_data
 
-while true; do
-    for filepath in "$input_directory"/*.csv; do
-        if [ -f "$filepath" ]; then
-            filename=$(basename "$filepath")
-            output_filepath="$output_directory/processed_$filename"
+        job_data.append(job_info)
 
-            process_file "$filepath" "$output_filepath"
+    return job_data
 
-            # Move processed file to avoid reprocessing
-            mv "$filepath" "$input_directory/processed_$filename"
-        fi
-    done
+def read_folder_and_parse_xml(directory):
+    all_job_data = []
 
-    # Wait for 5 minutes
-    sleep 300
-done
+    for root, _, files in os.walk(directory):
+        for file in files:
+            if file.endswith('.xml'):
+                xml_file_path = os.path.join(root, file)
+                job_data = parse_control_m_xml(xml_file_path)
+                all_job_data.extend(job_data)
+    
+    return all_job_data
+
+def save_to_csv(job_data, output_csv):
+    df = pd.json_normalize(job_data)
+    df.to_csv(output_csv, index=False)
+
+if __name__ == "__main__":
+    input_directory = '/path/to/xml/folder'  # Replace with your directory
+    output_csv = 'control_m_jobs.csv'        # Replace with desired output CSV file name
+    
+    all_job_data = read_folder_and_parse_xml(input_directory)
+    save_to_csv(all_job_data, output_csv)
