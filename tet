@@ -1,66 +1,22 @@
-import os
-import xml.etree.ElementTree as ET
-import pandas as pd
+# Root logger option
+log4j.rootLogger=INFO, file, console
 
-def parse_control_m_xml(xml_file):
-    tree = ET.parse(xml_file)
-    root = tree.getroot()
+# RollingFileAppender with compression
+log4j.appender.file=org.apache.log4j.rolling.RollingFileAppender
+log4j.appender.file.File=/var/log/cloudera_exit/application.log
+log4j.appender.file.MaxFileSize=1GB
+log4j.appender.file.MaxBackupIndex=7
+log4j.appender.file.layout=org.apache.log4j.PatternLayout
+log4j.appender.file.layout.ConversionPattern=%d{ISO8601} [%t] %-5p %c %x - %m%n
 
-    job_data = []
-    
-    for job in root.findall('.//JOB'):
-        job_info = {}
+# Using a GZ Compressing Policy
+log4j.appender.file.rollingPolicy=org.apache.log4j.rolling.FixedWindowRollingPolicy
+log4j.appender.file.rollingPolicy.FileNamePattern=/var/log/cloudera_exit/application-%i.log.gz
+log4j.appender.file.triggeringPolicy=org.apache.log4j.rolling.SizeBasedTriggeringPolicy
+log4j.appender.file.triggeringPolicy.MaxFileSize=1GB
 
-        # Extract all attributes of the job
-        for attr, value in job.attrib.items():
-            job_info[attr] = value
-
-        # Extract all child elements and their text/attributes
-        for elem in job:
-            if elem.tag in ['VARIABLE', 'INCOND', 'OUTCOND']:
-                # Handle nested elements like VARIABLE, INCOND, and OUTCOND
-                if elem.tag not in job_info:
-                    job_info[elem.tag] = []
-                nested_item = {f"{elem.tag}_{k}": v for k, v in elem.attrib.items()}
-                job_info[elem.tag].append(nested_item)
-            elif elem.text and elem.text.strip():
-                job_info[elem.tag] = elem.text.strip()
-
-        job_data.append(job_info)
-
-    return job_data
-
-def read_folder_and_parse_xml(directory):
-    all_job_data = []
-
-    for root, _, files in os.walk(directory):
-        for file in files:
-            if file.endswith('.xml'):
-                xml_file_path = os.path.join(root, file)
-                job_data = parse_control_m_xml(xml_file_path)
-                all_job_data.extend(job_data)
-    
-    return all_job_data
-
-def save_to_csv(job_data, output_csv):
-    # Flatten the nested fields (VARIABLE, INCOND, OUTCOND) using pandas.json_normalize
-    flat_data = []
-    for job in job_data:
-        flat_job = {}
-        for key, value in job.items():
-            if isinstance(value, list):
-                for item in value:
-                    flat_job.update(item)
-            else:
-                flat_job[key] = value
-        flat_data.append(flat_job)
-    
-    df = pd.DataFrame(flat_data)
-    df.to_csv(output_csv, index=False)
-
-if __name__ == "__main__":
-    input_directory = '/path/to/xml/folder'  # Replace with your directory
-    output_csv = 'control_m_jobs.csv'        # Replace with desired output CSV file name
-    
-    all_job_data = read_folder_and_parse_xml(input_directory)
-    save_to_csv(all_job_data, output_csv)
+# Console appender
+log4j.appender.console=org.apache.log4j.ConsoleAppender
+log4j.appender.console.Target=System.out
+log4j.appender.console.layout=org.apache.log4j.PatternLayout
+log4j.appender.console.layout.ConversionPattern=%d{ISO8601} [%t] %-5p %c %x - %m%n
