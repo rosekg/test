@@ -1,22 +1,20 @@
-# Root logger option
-log4j.rootLogger=INFO, file, console
+# Root logger configuration
+log4j.rootLogger=INFO, rollingFile
 
-# RollingFileAppender with compression
-log4j.appender.file=org.apache.log4j.rolling.RollingFileAppender
-log4j.appender.file.File=/var/log/cloudera_exit/application.log
-log4j.appender.file.MaxFileSize=1GB
-log4j.appender.file.MaxBackupIndex=7
-log4j.appender.file.layout=org.apache.log4j.PatternLayout
-log4j.appender.file.layout.ConversionPattern=%d{ISO8601} [%t] %-5p %c %x - %m%n
+# RollingFileAppender configuration
+log4j.appender.rollingFile=org.apache.log4j.rolling.RollingFileAppender
+log4j.appender.rollingFile.File=${log.file.name}
 
-# Using a GZ Compressing Policy
-log4j.appender.file.rollingPolicy=org.apache.log4j.rolling.FixedWindowRollingPolicy
-log4j.appender.file.rollingPolicy.FileNamePattern=/var/log/cloudera_exit/application-%i.log.gz
-log4j.appender.file.triggeringPolicy=org.apache.log4j.rolling.SizeBasedTriggeringPolicy
-log4j.appender.file.triggeringPolicy.MaxFileSize=1GB
+# Rolling policy configuration
+log4j.appender.rollingFile.rollingPolicy=org.apache.log4j.rolling.FixedWindowRollingPolicy
+log4j.appender.rollingFile.rollingPolicy.FileNamePattern=${log.file.name}-%i.log.gz
+log4j.appender.rollingFile.rollingPolicy.MinIndex=1
+log4j.appender.rollingFile.rollingPolicy.MaxIndex=7
 
-# Console appender
-log4j.appender.console=org.apache.log4j.ConsoleAppender
-log4j.appender.console.Target=System.out
-log4j.appender.console.layout=org.apache.log4j.PatternLayout
-log4j.appender.console.layout.ConversionPattern=%d{ISO8601} [%t] %-5p %c %x - %m%n
+# Triggering policy configuration
+log4j.appender.rollingFile.triggeringPolicy=org.apache.log4j.rolling.SizeBasedTriggeringPolicy
+log4j.appender.rollingFile.triggeringPolicy.MaxFileSize=1GB
+
+# Layout configuration
+log4j.appender.rollingFile.layout=org.apache.log4j.PatternLayout
+log4j.appender.rollingFile.layout.ConversionPattern=%d{ISO8601} [%t] %-5p %c %x - %m%n
