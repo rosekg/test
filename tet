@@ -1,20 +1,50 @@
-# Root logger configuration
-log4j.rootLogger=INFO, rollingFile
+from kafka import KafkaConsumer
 
-# RollingFileAppender configuration
-log4j.appender.rollingFile=org.apache.log4j.rolling.RollingFileAppender
-log4j.appender.rollingFile.File=${log.file.name}
+# Function to get Kafka lag details and print as a single row
+def get_kafka_lag(bootstrap_servers, group_id, topic):
+    # Create a Kafka Consumer to get the current offset for each partition
+    consumer = KafkaConsumer(
+        bootstrap_servers=bootstrap_servers,
+        group_id=group_id,
+        enable_auto_commit=False
+    )
 
-# Rolling policy configuration
-log4j.appender.rollingFile.rollingPolicy=org.apache.log4j.rolling.FixedWindowRollingPolicy
-log4j.appender.rollingFile.rollingPolicy.FileNamePattern=${log.file.name}-%i.log.gz
-log4j.appender.rollingFile.rollingPolicy.MinIndex=1
-log4j.appender.rollingFile.rollingPolicy.MaxIndex=7
+    # Subscribe to the topic
+    consumer.subscribe([topic])
 
-# Triggering policy configuration
-log4j.appender.rollingFile.triggeringPolicy=org.apache.log4j.rolling.SizeBasedTriggeringPolicy
-log4j.appender.rollingFile.triggeringPolicy.MaxFileSize=1GB
+    # Get the current offsets of the consumer group
+    partitions = consumer.partitions_for_topic(topic)
+    topic_partitions = [p for p in partitions]
 
-# Layout configuration
-log4j.appender.rollingFile.layout=org.apache.log4j.PatternLayout
-log4j.appender.rollingFile.layout.ConversionPattern=%d{ISO8601} [%t] %-5p %c %x - %m%n
+    # Get the latest offset for each partition
+    end_offsets = consumer.end_offsets(topic_partitions)
+
+    # Get the committed offsets for the group
+    committed_offsets = consumer.committed(topic_partitions)
+
+    # Initialize total offset and lag
+    total_offset = 0
+    total_lag = 0
+
+    # Calculate the total offset and lag for the entire topic
+    for partition in topic_partitions:
+        committed_offset = committed_offsets[partition]
+        latest_offset = end_offsets[partition]
+        if committed_offset is not None:
+            lag = latest_offset - committed_offset
+            total_offset += committed_offset
+            total_lag += lag
+
+    # Print the results in a single row
+    print(f"{'Topic':<20}{'Consumer Group':<20}{'Total Offset':<15}{'Total Lag':<10}")
+    print(f"{topic:<20}{group_id:<20}{total_offset:<15}{total_lag:<10}")
+
+    # Close the consumer
+    consumer.close()
+
+if __name__ == "__main__":
+    bootstrap_servers = 'localhost:9092'  # Replace with your Kafka broker addresses
+    group_id = 'your-consumer-group-id'   # Replace with your consumer group ID
+    topic = 'your-topic-name'             # Replace with your topic name
+
+    get_kafka_lag(bootstrap_servers, group_id, topic)
