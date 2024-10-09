@@ -1,16 +1,68 @@
-import pandas as pd
+import xml.etree.ElementTree as ET
 
-# Read the Excel file
-df = pd.read_excel('input_file.xlsx')
+def extract_schedule_details(xml_file):
+    # Parse the XML file
+    tree = ET.parse(xml_file)
+    root = tree.getroot()
 
-# Ensure all columns are wrapped in double quotes
-df = df.applymap(lambda x: f'"{x}"')
+    job_schedules = []
 
-# Combine the last three columns into one, separated by '|'
-df['combined_column'] = df.iloc[:, -3:].apply(lambda row: '|'.join(row), axis=1)
+    # Iterate over each job in the XML file
+    for job in root.findall('.//JOB'):
+        job_name = job.findtext('JOBNAME', 'N/A')
 
-# Drop the last three original columns (if needed)
-df = df.iloc[:, :-3]
+        # Extract schedule details
+        days = job.findtext('DAYS', 'N/A')
+        dayscal = job.findtext('DAYSCAL', 'N/A')
+        weekdays = job.findtext('WEEKDAYS', 'N/A')
+        confcal = job.findtext('CONFCAL', 'N/A')
+        time_from = job.findtext('TIMEFROM', 'N/A')
+        time_to = job.findtext('TIMETO', 'N/A')
 
-# Save the modified DataFrame to a CSV with a custom separator (e.g., comma)
-df.to_csv('output_file.csv', sep=',', index=False, quoting=1)  # quoting=1 ensures quotes around everything
+        # Map to human-readable format
+        schedule_details = {
+            'Job Name': job_name,
+            'Days': map_days(days),
+            'Days Calendar': map_calendar(dayscal),
+            'Weekdays': map_weekdays(weekdays),
+            'Confirmation Calendar': map_calendar(confcal),
+            'Time From': map_time(time_from),
+            'Time To': map_time(time_to)
+        }
+        job_schedules.append(schedule_details)
+
+    return job_schedules
+
+def map_days(days):
+    if days == 'N/A':
+        return 'Not Scheduled'
+    return f"Day {days}"
+
+def map_calendar(cal):
+    if cal == 'N/A':
+        return 'No Calendar'
+    return f"Calendar {cal}"
+
+def map_weekdays(weekdays):
+    weekdays_mapping = {
+        '1': 'Monday', '2': 'Tuesday', '3': 'Wednesday',
+        '4': 'Thursday', '5': 'Friday', '6': 'Saturday', '7': 'Sunday'
+    }
+    if weekdays == 'N/A':
+        return 'No Weekday'
+    # Map each weekday code to human-readable name
+    return ', '.join([weekdays_mapping.get(day, f'Unknown ({day})') for day in weekdays])
+
+def map_time(time_str):
+    if time_str == 'N/A':
+        return 'No Time'
+    # Format the time in HH:MM format
+    return f"{time_str[:2]}:{time_str[2:]}"
+
+# Example usage
+xml_file_path = 'controlm_schedule.xml'  # Path to your XML file
+job_schedule_data = extract_schedule_details(xml_file_path)
+
+# Print the extracted details
+for job_schedule in job_schedule_data:
+    print(job_schedule)
