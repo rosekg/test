@@ -1,68 +1,87 @@
-import xml.etree.ElementTree as ET
+import requests
+import re
 
-def extract_schedule_details(xml_file):
-    # Parse the XML file
-    tree = ET.parse(xml_file)
-    root = tree.getroot()
+# Control-M Web UI base URL and authentication
+BASE_URL = "https://controlm-server-url/api"  # Replace with actual Control-M API URL
+USERNAME = "your_username"
+PASSWORD = "your_password"
+AUTH_TOKEN = None  # Initialize token; update if needed for your API
 
-    job_schedules = []
+def get_auth_token():
+    # Function to get auth token if Control-M API requires authentication
+    response = requests.post(f"{BASE_URL}/session/login", json={"username": USERNAME, "password": PASSWORD})
+    if response.status_code == 200:
+        return response.json()["token"]
+    else:
+        raise Exception("Failed to authenticate with Control-M API.")
 
-    # Iterate over each job in the XML file
-    for job in root.findall('.//JOB'):
-        job_name = job.findtext('JOBNAME', 'N/A')
+def get_failed_jobs():
+    global AUTH_TOKEN
+    if AUTH_TOKEN is None:
+        AUTH_TOKEN = get_auth_token()
 
-        # Extract schedule details
-        days = job.findtext('DAYS', 'N/A')
-        dayscal = job.findtext('DAYSCAL', 'N/A')
-        weekdays = job.findtext('WEEKDAYS', 'N/A')
-        confcal = job.findtext('CONFCAL', 'N/A')
-        time_from = job.findtext('TIMEFROM', 'N/A')
-        time_to = job.findtext('TIMETO', 'N/A')
-
-        # Map to human-readable format
-        schedule_details = {
-            'Job Name': job_name,
-            'Days': map_days(days),
-            'Days Calendar': map_calendar(dayscal),
-            'Weekdays': map_weekdays(weekdays),
-            'Confirmation Calendar': map_calendar(confcal),
-            'Time From': map_time(time_from),
-            'Time To': map_time(time_to)
-        }
-        job_schedules.append(schedule_details)
-
-    return job_schedules
-
-def map_days(days):
-    if days == 'N/A':
-        return 'Not Scheduled'
-    return f"Day {days}"
-
-def map_calendar(cal):
-    if cal == 'N/A':
-        return 'No Calendar'
-    return f"Calendar {cal}"
-
-def map_weekdays(weekdays):
-    weekdays_mapping = {
-        '1': 'Monday', '2': 'Tuesday', '3': 'Wednesday',
-        '4': 'Thursday', '5': 'Friday', '6': 'Saturday', '7': 'Sunday'
+    headers = {"Authorization": f"Bearer {AUTH_TOKEN}"}
+    params = {
+        "folder": "Hadoop*",   # Filter for Hadoop folders
+        "server": "serv00",    # Filter for specific server
+        "status": "Failed"     # Only fetch failed jobs
     }
-    if weekdays == 'N/A':
-        return 'No Weekday'
-    # Map each weekday code to human-readable name
-    return ', '.join([weekdays_mapping.get(day, f'Unknown ({day})') for day in weekdays])
 
-def map_time(time_str):
-    if time_str == 'N/A':
-        return 'No Time'
-    # Format the time in HH:MM format
-    return f"{time_str[:2]}:{time_str[2:]}"
+    # API endpoint to fetch jobs (Update this endpoint based on Control-M's documentation)
+    response = requests.get(f"{BASE_URL}/jobs", headers=headers, params=params)
+    
+    if response.status_code == 200:
+        jobs = response.json()["jobs"]
+        failed_jobs = []
 
-# Example usage
-xml_file_path = 'controlm_schedule.xml'  # Path to your XML file
-job_schedule_data = extract_schedule_details(xml_file_path)
+        for job in jobs:
+            if job["status"] == "Failed":
+                failed_jobs.append({
+                    "job_id": job["id"],
+                    "folder": job["folder"],
+                    "name": job["name"],
+                    "status": job["status"]
+                })
+        return failed_jobs
+    else:
+        raise Exception("Failed to retrieve jobs from Control-M API.")
 
-# Print the extracted details
-for job_schedule in job_schedule_data:
-    print(job_schedule)
+def get_job_failure_details(job_id):
+    global AUTH_TOKEN
+    if AUTH_TOKEN is None:
+        AUTH_TOKEN = get_auth_token()
+
+    headers = {"Authorization": f"Bearer {AUTH_TOKEN}"}
+
+    # API endpoint to get job logs (update as per Control-M API documentation)
+    response = requests.get(f"{BASE_URL}/jobs/{job_id}/logs", headers=headers)
+    if response.status_code == 200:
+        log_content = response.text
+
+        # Extract failure reason and Spark app ID using regular expressions
+        failure_reason = re.search(r"Failure Reason: (.*)", log_content)
+        spark_app_id = re.search(r"Spark Application ID: (app-\d+-\d+)", log_content)
+
+        return {
+            "failure_reason": failure_reason.group(1) if failure_reason else "Not Found",
+            "spark_app_id": spark_app_id.group(1) if spark_app_id else "Not Found"
+        }
+    else:
+        raise Exception(f"Failed to retrieve logs for job ID: {job_id}")
+
+def main():
+    try:
+        failed_jobs = get_failed_jobs()
+        print("Failed Jobs in Hadoop* folders on serv00:")
+        for job in failed_jobs:
+            details = get_job_failure_details(job["job_id"])
+            print(f"Job Name: {job['name']}")
+            print(f"Folder: {job['folder']}")
+            print(f"Failure Reason: {details['failure_reason']}")
+            print(f"Spark App ID: {details['spark_app_id']}")
+            print("-" * 40)
+    except Exception as e:
+        print("Error:", e)
+
+if __name__ == "__main__":
+    main()
