@@ -1,87 +1,42 @@
 import requests
-import re
+import pandas as pd
+from datetime import datetime, timedelta
 
-# Control-M Web UI base URL and authentication
-BASE_URL = "https://controlm-server-url/api"  # Replace with actual Control-M API URL
-USERNAME = "your_username"
-PASSWORD = "your_password"
-AUTH_TOKEN = None  # Initialize token; update if needed for your API
+# YARN ResourceManager URL
+yarn_url = "http://<yarn-resource-manager-url>:8088/ws/v1/cluster/apps"
 
-def get_auth_token():
-    # Function to get auth token if Control-M API requires authentication
-    response = requests.post(f"{BASE_URL}/session/login", json={"username": USERNAME, "password": PASSWORD})
-    if response.status_code == 200:
-        return response.json()["token"]
-    else:
-        raise Exception("Failed to authenticate with Control-M API.")
+# Set time threshold (3 hours)
+time_threshold = timedelta(hours=3)
 
-def get_failed_jobs():
-    global AUTH_TOKEN
-    if AUTH_TOKEN is None:
-        AUTH_TOKEN = get_auth_token()
-
-    headers = {"Authorization": f"Bearer {AUTH_TOKEN}"}
-    params = {
-        "folder": "Hadoop*",   # Filter for Hadoop folders
-        "server": "serv00",    # Filter for specific server
-        "status": "Failed"     # Only fetch failed jobs
-    }
-
-    # API endpoint to fetch jobs (Update this endpoint based on Control-M's documentation)
-    response = requests.get(f"{BASE_URL}/jobs", headers=headers, params=params)
+# Function to get long-running jobs
+def get_long_running_jobs(yarn_url, time_threshold):
+    response = requests.get(yarn_url, params={"state": "RUNNING"})
     
-    if response.status_code == 200:
-        jobs = response.json()["jobs"]
-        failed_jobs = []
+    # Check if response is valid
+    if response.status_code != 200:
+        print(f"Failed to retrieve data: {response.status_code}")
+        return pd.DataFrame()
+    
+    data = response.json()
+    
+    # Collect jobs running longer than threshold
+    long_running_jobs = []
+    for app in data.get("apps", {}).get("app", []):
+        start_time = datetime.fromtimestamp(app["startedTime"] / 1000)
+        duration = datetime.now() - start_time
+        
+        if duration > time_threshold:
+            app["duration"] = duration  # Add duration to app data
+            long_running_jobs.append(app)
+    
+    # Convert to DataFrame
+    df = pd.DataFrame(long_running_jobs)
+    return df
 
-        for job in jobs:
-            if job["status"] == "Failed":
-                failed_jobs.append({
-                    "job_id": job["id"],
-                    "folder": job["folder"],
-                    "name": job["name"],
-                    "status": job["status"]
-                })
-        return failed_jobs
-    else:
-        raise Exception("Failed to retrieve jobs from Control-M API.")
-
-def get_job_failure_details(job_id):
-    global AUTH_TOKEN
-    if AUTH_TOKEN is None:
-        AUTH_TOKEN = get_auth_token()
-
-    headers = {"Authorization": f"Bearer {AUTH_TOKEN}"}
-
-    # API endpoint to get job logs (update as per Control-M API documentation)
-    response = requests.get(f"{BASE_URL}/jobs/{job_id}/logs", headers=headers)
-    if response.status_code == 200:
-        log_content = response.text
-
-        # Extract failure reason and Spark app ID using regular expressions
-        failure_reason = re.search(r"Failure Reason: (.*)", log_content)
-        spark_app_id = re.search(r"Spark Application ID: (app-\d+-\d+)", log_content)
-
-        return {
-            "failure_reason": failure_reason.group(1) if failure_reason else "Not Found",
-            "spark_app_id": spark_app_id.group(1) if spark_app_id else "Not Found"
-        }
-    else:
-        raise Exception(f"Failed to retrieve logs for job ID: {job_id}")
-
-def main():
-    try:
-        failed_jobs = get_failed_jobs()
-        print("Failed Jobs in Hadoop* folders on serv00:")
-        for job in failed_jobs:
-            details = get_job_failure_details(job["job_id"])
-            print(f"Job Name: {job['name']}")
-            print(f"Folder: {job['folder']}")
-            print(f"Failure Reason: {details['failure_reason']}")
-            print(f"Spark App ID: {details['spark_app_id']}")
-            print("-" * 40)
-    except Exception as e:
-        print("Error:", e)
-
-if __name__ == "__main__":
-    main()
+# Get long-running jobs and save to CSV
+df_long_running = get_long_running_jobs(yarn_url, time_threshold)
+if not df_long_running.empty:
+    df_long_running.to_csv("long_running_yarn_jobs.csv", index=False)
+    print("Long-running jobs saved to long_running_yarn_jobs.csv")
+else:
+    print("No long-running jobs found.")
