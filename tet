@@ -1,4 +1,5 @@
 import requests
+from bs4 import BeautifulSoup
 import pandas as pd
 from datetime import datetime, timedelta
 
@@ -10,28 +11,41 @@ time_threshold = timedelta(hours=3)
 
 # Function to get long-running jobs
 def get_long_running_jobs(yarn_url, time_threshold):
-    response = requests.get(yarn_url, params={"state": "RUNNING"})
-    
-    # Check if response is valid
-    if response.status_code != 200:
-        print(f"Failed to retrieve data: {response.status_code}")
-        return pd.DataFrame()
-    
-    data = response.json()
-    
-    # Collect jobs running longer than threshold
-    long_running_jobs = []
-    for app in data.get("apps", {}).get("app", []):
-        start_time = datetime.fromtimestamp(app["startedTime"] / 1000)
-        duration = datetime.now() - start_time
+    try:
+        response = requests.get(yarn_url, params={"state": "RUNNING"})
         
-        if duration > time_threshold:
-            app["duration"] = duration  # Add duration to app data
-            long_running_jobs.append(app)
-    
-    # Convert to DataFrame
-    df = pd.DataFrame(long_running_jobs)
-    return df
+        # Check if the response status is OK
+        if response.status_code != 200:
+            print(f"Failed to retrieve data: {response.status_code}")
+            return pd.DataFrame()
+        
+        # Try JSON parsing, else parse as HTML
+        try:
+            data = response.json()
+        except requests.JSONDecodeError:
+            # If response is HTML, parse with BeautifulSoup
+            soup = BeautifulSoup(response.text, "html.parser")
+            # Here, you would find and extract specific tags with job information
+            print("Received HTML response; cannot parse as JSON.")
+            return pd.DataFrame()  # Return empty for now
+        
+        # Collect jobs running longer than threshold
+        long_running_jobs = []
+        for app in data.get("apps", {}).get("app", []):
+            start_time = datetime.fromtimestamp(app["startedTime"] / 1000)
+            duration = datetime.now() - start_time
+            
+            if duration > time_threshold:
+                app["duration"] = duration  # Add duration to app data
+                long_running_jobs.append(app)
+        
+        # Convert to DataFrame
+        df = pd.DataFrame(long_running_jobs)
+        return df
+
+    except requests.RequestException as e:
+        print("Request failed:", e)
+        return pd.DataFrame()
 
 # Get long-running jobs and save to CSV
 df_long_running = get_long_running_jobs(yarn_url, time_threshold)
