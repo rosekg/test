@@ -1,73 +1,39 @@
-import requests
-from bs4 import BeautifulSoup
+from jira import JIRA
 import pandas as pd
-from datetime import datetime, timedelta
 
-# YARN ResourceManager URL
-yarn_url = "http://<yarn-resource-manager-url>:8088/cluster/apps"
+# Jira connection details
+JIRA_SERVER = 'https://your-jira-domain.atlassian.net'
+JIRA_USER = 'your-email@example.com'
+JIRA_API_TOKEN = 'your-api-token'
 
-# Set time threshold (3 hours)
-time_threshold = timedelta(hours=3)
+# Authenticate with Jira
+jira = JIRA(server=JIRA_SERVER, basic_auth=(JIRA_USER, JIRA_API_TOKEN))
 
-# Function to parse HTML and extract job details
-def get_long_running_jobs_from_html(yarn_url, time_threshold):
-    try:
-        response = requests.get(yarn_url, params={"state": "RUNNING"})
-        
-        # Check if the response status is OK
-        if response.status_code != 200:
-            print(f"Failed to retrieve data: {response.status_code}")
-            return pd.DataFrame()
-        
-        # Parse the HTML content
-        soup = BeautifulSoup(response.text, "html.parser")
-        
-        # Locate the job information table or div (modify based on actual HTML structure)
-        # Assuming jobs are listed in a table with rows (<tr>) and each job in a row
-        job_rows = soup.find_all("tr")  # Adjust selector as needed
-        
-        # Collect job details
-        long_running_jobs = []
-        for row in job_rows[1:]:  # Skip header row if present
-            columns = row.find_all("td")  # Modify if jobs are listed in a different structure
-            
-            if len(columns) < 5:  # Adjust based on expected number of columns
-                continue
-            
-            # Extract job details
-            job_id = columns[0].text.strip()     # Example: Job ID
-            job_name = columns[1].text.strip()   # Example: Job Name
-            start_time_str = columns[2].text.strip()  # Example: Start Time
-            
-            # Parse start time (assuming timestamp format like "yyyy-MM-dd HH:mm:ss")
-            try:
-                start_time = datetime.strptime(start_time_str, "%Y-%m-%d %H:%M:%S")
-            except ValueError:
-                continue
-            
-            # Calculate duration and check if it exceeds the threshold
-            duration = datetime.now() - start_time
-            if duration > time_threshold:
-                # Append job details if running longer than threshold
-                long_running_jobs.append({
-                    "Job ID": job_id,
-                    "Job Name": job_name,
-                    "Start Time": start_time,
-                    "Duration": duration
-                })
-        
-        # Convert to DataFrame
-        df = pd.DataFrame(long_running_jobs)
-        return df
+# Read the input CSV file
+input_file = 'input.csv'
+df = pd.read_csv(input_file)
 
-    except requests.RequestException as e:
-        print("Request failed:", e)
-        return pd.DataFrame()
+# Function to create or update a Jira issue
+def create_or_update_issue(row):
+    issue_key = row.get('Issue Key', None)  # Use 'Issue Key' column to check if issue exists
 
-# Get long-running jobs and save to CSV
-df_long_running = get_long_running_jobs_from_html(yarn_url, time_threshold)
-if not df_long_running.empty:
-    df_long_running.to_csv("long_running_yarn_jobs.csv", index=False)
-    print("Long-running jobs saved to long_running_yarn_jobs.csv")
-else:
-    print("No long-running jobs found.")
+    issue_data = {
+        'project': {'key': row['Project Key']},
+        'summary': row['Summary'],
+        'description': row['Description'],
+        'issuetype': {'name': row['Issue Type']},
+        'priority': {'name': row['Priority']},
+        # Add other fields as needed
+    }
+
+    if pd.notna(issue_key):  # Update existing issue if Issue Key is provided
+        issue = jira.issue(issue_key)
+        issue.update(fields=issue_data)
+        print(f"Issue {issue_key} updated.")
+    else:  # Create a new issue if no Issue Key is provided
+        issue = jira.create_issue(fields=issue_data)
+        print(f"Issue {issue.key} created.")
+
+# Loop through the DataFrame rows
+for index, row in df.iterrows():
+    create_or_update_issue(row)
