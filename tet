@@ -1,39 +1,48 @@
-from jira import JIRA
 import pandas as pd
+from jira import JIRA
+import openpyxl
 
-# Jira connection details
-JIRA_SERVER = 'https://your-jira-domain.atlassian.net'
-JIRA_USER = 'your-email@example.com'
-JIRA_API_TOKEN = 'your-api-token'
+# Jira setup
+jira_url = 'https://your-domain.atlassian.net'
+jira_username = 'your-username'
+jira_password = 'your-password'
+jira_project_key = 'YOUR_PROJECT_KEY'
 
 # Authenticate with Jira
-jira = JIRA(server=JIRA_SERVER, basic_auth=(JIRA_USER, JIRA_API_TOKEN))
+jira_options = {'server': jira_url}
+jira = JIRA(options=jira_options, basic_auth=(jira_username, jira_password))
 
-# Read the input CSV file
-input_file = 'input.csv'
-df = pd.read_csv(input_file)
+# Load Excel sheet
+input_file = 'your_input_file.xlsx'
+df = pd.read_excel(input_file)
 
-# Function to create or update a Jira issue
-def create_or_update_issue(row):
-    issue_key = row.get('Issue Key', None)  # Use 'Issue Key' column to check if issue exists
+# Iterate through rows to create or update issues
+for idx, row in df.iterrows():
+    issue_key = row.get('Jira_Number')  # Assumes column 'Jira_Number' exists for tracking
 
-    issue_data = {
-        'project': {'key': row['Project Key']},
-        'summary': row['Summary'],
-        'description': row['Description'],
-        'issuetype': {'name': row['Issue Type']},
-        'priority': {'name': row['Priority']},
-        # Add other fields as needed
-    }
-
-    if pd.notna(issue_key):  # Update existing issue if Issue Key is provided
+    if pd.isna(issue_key):  # If no Jira number, create new issue
+        # Define issue fields
+        issue_fields = {
+            'project': {'key': jira_project_key},
+            'summary': row['Summary'],  # Replace with actual column names
+            'description': row['Description'],  # Replace with actual column names
+            'issuetype': {'name': 'Task'}  # Change issue type if needed
+        }
+        # Create the issue
+        new_issue = jira.create_issue(fields=issue_fields)
+        df.at[idx, 'Jira_Number'] = new_issue.key  # Update Jira number in DataFrame
+    else:  # If Jira number exists, update the issue if there are changes
         issue = jira.issue(issue_key)
-        issue.update(fields=issue_data)
-        print(f"Issue {issue_key} updated.")
-    else:  # Create a new issue if no Issue Key is provided
-        issue = jira.create_issue(fields=issue_data)
-        print(f"Issue {issue.key} created.")
+        updated_fields = {}
 
-# Loop through the DataFrame rows
-for index, row in df.iterrows():
-    create_or_update_issue(row)
+        # Check for updates in each column you want to track
+        if row['Summary'] != issue.fields.summary:
+            updated_fields['summary'] = row['Summary']
+        if row['Description'] != issue.fields.description:
+            updated_fields['description'] = row['Description']
+
+        if updated_fields:
+            issue.update(fields=updated_fields)
+
+# Save the updated DataFrame back to the Excel file
+df.to_excel(input_file, index=False)
