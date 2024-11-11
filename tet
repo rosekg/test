@@ -2,7 +2,11 @@
         variable_names = []
         variable_values = []
         
-        # Initialize lists to collect values across multiple ON conditions
+        # Initialize lists to collect values across multiple INCOND, OUTCOND, and ON conditions
+        incond_names = []
+        incond_ods = []
+        outcond_names = []
+        outcond_ods = []
         domail_destinations = []
         domail_subjects = []
         domail_messages = []
@@ -13,11 +17,17 @@
             if elem.tag == 'VARIABLE':
                 variable_names.append(elem.attrib.get('NAME', ''))
                 variable_values.append(elem.attrib.get('VALUE', ''))
-            elif elem.tag == 'INCOND' or elem.tag == 'OUTCOND':
-                if elem.tag not in job_info:
-                    job_info[elem.tag] = []
-                nested_item = {f"{elem.tag}_{k}": v for k, v in elem.attrib.items()}
-                job_info[elem.tag].append(nested_item)
+            
+            elif elem.tag == 'INCOND':
+                # Collect values for INCOND
+                incond_names.append(elem.attrib.get('NAME', ''))
+                incond_ods.append(elem.attrib.get('ODATE', ''))
+                
+            elif elem.tag == 'OUTCOND':
+                # Collect values for OUTCOND
+                outcond_names.append(elem.attrib.get('NAME', ''))
+                outcond_ods.append(elem.attrib.get('ODATE', ''))
+                
             elif elem.tag == 'ON':
                 # Capture ON condition code
                 condition_code = elem.attrib.get('CODE', '')
@@ -44,11 +54,15 @@
             job_info['variable_name'] = '|'.join(variable_names)
             job_info['variable_value'] = '|'.join(variable_values)
 
+        # Concatenate INCOND and OUTCOND details with '|'
+        job_info['incond_name'] = '|'.join(incond_names)
+        job_info['incond_odate'] = '|'.join(incond_ods)
+        job_info['outcond_name'] = '|'.join(outcond_names)
+        job_info['outcond_odate'] = '|'.join(outcond_ods)
+
         # Concatenate collected ON condition details with '|'
         job_info['on_condition_code'] = '|'.join(on_condition_codes)
         job_info['domail_dest'] = '|'.join(domail_destinations)
         job_info['domail_subject'] = '|'.join(domail_subjects)
         job_info['domail_message'] = '|'.join(domail_messages)
         job_info['dooutput'] = '|'.join(dooutput_options)
-        
-        job_data.append(job_info)
