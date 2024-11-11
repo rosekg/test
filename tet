@@ -1,1 +1,54 @@
-=TEXT(DATE(MID(A1,1,4), MID(A1,5,2), MID(A1,7,2)) + TIME(MID(A1,9,2), MID(A1,11,2), MID(A1,13,2)), "YYYY-MM-DD:HH.MM.SS")
+# Extract VARIABLE attributes and concatenate values with '|'
+        variable_names = []
+        variable_values = []
+        
+        # Initialize lists to collect values across multiple ON conditions
+        domail_destinations = []
+        domail_subjects = []
+        domail_messages = []
+        dooutput_options = []
+        on_condition_codes = []
+
+        for elem in job:
+            if elem.tag == 'VARIABLE':
+                variable_names.append(elem.attrib.get('NAME', ''))
+                variable_values.append(elem.attrib.get('VALUE', ''))
+            elif elem.tag == 'INCOND' or elem.tag == 'OUTCOND':
+                if elem.tag not in job_info:
+                    job_info[elem.tag] = []
+                nested_item = {f"{elem.tag}_{k}": v for k, v in elem.attrib.items()}
+                job_info[elem.tag].append(nested_item)
+            elif elem.tag == 'ON':
+                # Capture ON condition code
+                condition_code = elem.attrib.get('CODE', '')
+                if condition_code:
+                    on_condition_codes.append(condition_code)
+
+                for subelem in elem:
+                    if subelem.tag == 'DOMAIL':
+                        # Collect values for DOMAIL
+                        domail_destinations.append(subelem.attrib.get('DEST', ''))
+                        domail_subjects.append(subelem.attrib.get('SUBJECT', ''))
+                        domail_messages.append(subelem.attrib.get('MESSAGE', ''))
+                    elif subelem.tag == 'DOOUTPUT':
+                        # Collect values for DOOUTPUT
+                        option = subelem.attrib.get('OPTION', '')
+                        par = subelem.attrib.get('PAR', '')
+                        dooutput_options.append(f"{option}: {par}")
+
+            elif elem.text and elem.text.strip():
+                job_info[elem.tag] = elem.text.strip()
+
+        # Concatenate variable names and values with '|'
+        if variable_names:
+            job_info['variable_name'] = '|'.join(variable_names)
+            job_info['variable_value'] = '|'.join(variable_values)
+
+        # Concatenate collected ON condition details with '|'
+        job_info['on_condition_code'] = '|'.join(on_condition_codes)
+        job_info['domail_dest'] = '|'.join(domail_destinations)
+        job_info['domail_subject'] = '|'.join(domail_subjects)
+        job_info['domail_message'] = '|'.join(domail_messages)
+        job_info['dooutput'] = '|'.join(dooutput_options)
+        
+        job_data.append(job_info)
