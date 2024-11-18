@@ -1,68 +1,7 @@
-# Extract VARIABLE attributes and concatenate values with '|'
-        variable_names = []
-        variable_values = []
-        
-        # Initialize lists to collect values across multiple INCOND, OUTCOND, and ON conditions
-        incond_names = []
-        incond_ods = []
-        outcond_names = []
-        outcond_ods = []
-        domail_destinations = []
-        domail_subjects = []
-        domail_messages = []
-        dooutput_options = []
-        on_condition_codes = []
-
-        for elem in job:
-            if elem.tag == 'VARIABLE':
-                variable_names.append(elem.attrib.get('NAME', ''))
-                variable_values.append(elem.attrib.get('VALUE', ''))
-            
-            elif elem.tag == 'INCOND':
-                # Collect values for INCOND
-                incond_names.append(elem.attrib.get('NAME', ''))
-                incond_ods.append(elem.attrib.get('ODATE', ''))
-                
-            elif elem.tag == 'OUTCOND':
-                # Collect values for OUTCOND
-                outcond_names.append(elem.attrib.get('NAME', ''))
-                outcond_ods.append(elem.attrib.get('ODATE', ''))
-                
-            elif elem.tag == 'ON':
-                # Capture ON condition code
-                condition_code = elem.attrib.get('CODE', '')
-                if condition_code:
-                    on_condition_codes.append(condition_code)
-
-                for subelem in elem:
-                    if subelem.tag == 'DOMAIL':
-                        # Collect values for DOMAIL
-                        domail_destinations.append(subelem.attrib.get('DEST', ''))
-                        domail_subjects.append(subelem.attrib.get('SUBJECT', ''))
-                        domail_messages.append(subelem.attrib.get('MESSAGE', ''))
-                    elif subelem.tag == 'DOOUTPUT':
-                        # Collect values for DOOUTPUT
-                        option = subelem.attrib.get('OPTION', '')
-                        par = subelem.attrib.get('PAR', '')
-                        dooutput_options.append(f"{option}: {par}")
-
-            elif elem.text and elem.text.strip():
-                job_info[elem.tag] = elem.text.strip()
-
-        # Concatenate variable names and values with '|'
-        if variable_names:
-            job_info['variable_name'] = '|'.join(variable_names)
-            job_info['variable_value'] = '|'.join(variable_values)
-
-        # Concatenate INCOND and OUTCOND details with '|'
-        job_info['incond_name'] = '|'.join(incond_names)
-        job_info['incond_odate'] = '|'.join(incond_ods)
-        job_info['outcond_name'] = '|'.join(outcond_names)
-        job_info['outcond_odate'] = '|'.join(outcond_ods)
-
-        # Concatenate collected ON condition details with '|'
-        job_info['on_condition_code'] = '|'.join(on_condition_codes)
-        job_info['domail_dest'] = '|'.join(domail_destinations)
-        job_info['domail_subject'] = '|'.join(domail_subjects)
-        job_info['domail_message'] = '|'.join(domail_messages)
-        job_info['dooutput'] = '|'.join(dooutput_options)
+ # Automatically trigger on specific branches
+  push:
+    branches:
+      - develop
+      - develop-libration
+      - develop-certified
+      - develop-calibration-certified
