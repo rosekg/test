@@ -1,6 +1,6 @@
 import pandas as pd
 
-# Read the CSV file into a DataFrame
+# Sample data with multiple predecessors
 data = {
     'jobname': ['Job1', 'Job2', 'Job3', 'Job5', 'job6', 'job7', 'job8'],
     'predecessor': ['jobx', 'Job1', 'Job1', 'Job2', 'jobx', 'job2', 'job5']
@@ -10,17 +10,42 @@ df = pd.DataFrame(data)
 # Create an empty 'successor' column
 df['successor'] = None
 
-# Iterate through the rows to find the successors
+# Function to get all successors recursively
+def get_all_successors(job, df, visited=None):
+    if visited is None:
+        visited = set()
+    
+    # If the job has already been visited, stop recursion to avoid cycles
+    if job in visited:
+        return []
+    
+    # Mark the job as visited
+    visited.add(job)
+    
+    # Find direct successors for the job
+    direct_successors = df[df['predecessor'].str.contains(f'(?<!\w){job}(?!\w)', na=False)]['jobname'].tolist()
+    
+    # If no direct successors, return an empty list
+    if not direct_successors:
+        return []
+    
+    # Collect all successors (direct and indirect) recursively
+    all_successors = set(direct_successors)  # Use a set to avoid duplicates
+    for successor in direct_successors:
+        all_successors.update(get_all_successors(successor, df, visited))  # Recursively find successors
+    
+    return all_successors
+
+# Iterate through the rows to find the successors and update the 'successor' column
 for index, row in df.iterrows():
-    # Get the jobname (current job)
     jobname = row['jobname']
     
-    # Find all jobs where 'predecessor' is the current jobname
-    successors = df[df['predecessor'] == jobname]['jobname'].tolist()
+    # Get all unique successors for the current job (including indirect ones)
+    all_successors = get_all_successors(jobname, df)
     
-    # If there are successors, join them with '|' and update the 'successor' column
-    if successors:
-        df.at[index, 'successor'] = '|'.join(successors)
+    # Join the successors with '|' and update the 'successor' column
+    if all_successors:
+        df.at[index, 'successor'] = '|'.join(sorted(all_successors))  # Sorting to ensure consistent order
     else:
         df.at[index, 'successor'] = 'None'
 
