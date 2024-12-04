@@ -1,58 +1,28 @@
-import xml.etree.ElementTree as ET
 import pandas as pd
 
-def parse_control_xml_to_df(file_path):
-    # Parse the XML file
-    tree = ET.parse(file_path)
-    root = tree.getroot()
+# Read the CSV file into a DataFrame
+data = {
+    'jobname': ['Job1', 'Job2', 'Job3', 'Job5', 'job6', 'job7', 'job8'],
+    'predecessor': ['jobx', 'Job1', 'Job1', 'Job2', 'jobx', 'job2', 'job5']
+}
+df = pd.DataFrame(data)
 
-    # Dictionary to store predecessor and successor relationships
-    job_map = {}
+# Create an empty 'successor' column
+df['successor'] = None
 
-    # First pass: Collect all job names with their predecessors and successors
-    for job in root.findall('.//job'):
-        jobname = job.find('jobname').text if job.find('jobname') is not None else "N/A"
-        predecessors = [incond.text.split('-')[0] for incond in job.findall('incond')]
-        successors = [outcond.text.split('-')[0] for outcond in job.findall('outcond')]
+# Iterate through the rows to find the successors
+for index, row in df.iterrows():
+    # Get the jobname (current job)
+    jobname = row['jobname']
+    
+    # Find all jobs where 'predecessor' is the current jobname
+    successors = df[df['predecessor'] == jobname]['jobname'].tolist()
+    
+    # If there are successors, join them with '|' and update the 'successor' column
+    if successors:
+        df.at[index, 'successor'] = '|'.join(successors)
+    else:
+        df.at[index, 'successor'] = 'None'
 
-        # Initialize job data if not already present
-        if jobname not in job_map:
-            job_map[jobname] = {'predecessor': set(), 'successor': set()}
-
-        # Add predecessors and successors to the job
-        job_map[jobname]['predecessor'].update(predecessors)
-        job_map[jobname]['successor'].update(successors)
-
-    # Second pass: Ensure all jobs are accounted for as successors
-    for jobname, data in job_map.items():
-        for successor in data['successor']:
-            if successor not in job_map:
-                job_map[successor] = {'predecessor': set(), 'successor': set()}
-                job_map[successor]['predecessor'].add(jobname)
-
-    # Prepare the final data for the DataFrame
-    job_data = []
-    for jobname, data in job_map.items():
-        predecessor_str = '|'.join(data['predecessor']) if data['predecessor'] else "None"
-        successor_str = '|'.join(data['successor']) if data['successor'] else "None"
-        job_data.append({
-            'jobname': jobname,
-            'predecessor': predecessor_str,
-            'successor': successor_str
-        })
-
-    # Create and return the DataFrame
-    return pd.DataFrame(job_data)
-
-# Input XML file
-input_file = 'control.xml'
-
-# Parse the XML and create the DataFrame
-df = parse_control_xml_to_df(input_file)
-
-# Save the DataFrame to CSV
-output_file = 'job_details.csv'
-df.to_csv(output_file, index=False)
-
-# Print the DataFrame
-print(df)
+# Display the final DataFrame
+print(df[['jobname', 'predecessor', 'successor']])
