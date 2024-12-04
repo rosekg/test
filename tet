@@ -1,47 +1,58 @@
 import xml.etree.ElementTree as ET
-import csv
+import pandas as pd
 
-def parse_control_xml(file_path, output_csv_path):
+def parse_control_xml_to_df(file_path):
     # Parse the XML file
     tree = ET.parse(file_path)
     root = tree.getroot()
 
-    # Dictionary to store job details
-    jobs_data = {}
+    # Dictionary to store predecessor and successor relationships
+    job_map = {}
 
-    # Iterate through each job in the XML file
-    for job in root.findall('.//job'):  # Adjust the path if needed
+    # First pass: Collect all job names with their predecessors and successors
+    for job in root.findall('.//job'):
         jobname = job.find('jobname').text if job.find('jobname') is not None else "N/A"
+        predecessors = [incond.text.split('-')[0] for incond in job.findall('incond')]
+        successors = [outcond.text.split('-')[0] for outcond in job.findall('outcond')]
 
-        # Extract predecessors and successors
-        predecessors = [incond.text for incond in job.findall('incond')]
-        successors = [outcond.text for outcond in job.findall('outcond')]
+        # Initialize job data if not already present
+        if jobname not in job_map:
+            job_map[jobname] = {'predecessor': set(), 'successor': set()}
 
-        # Join predecessors and successors with '|'
-        predecessor_str = '|'.join(predecessors) if predecessors else "None"
-        successor_str = '|'.join(successors) if successors else "None"
+        # Add predecessors and successors to the job
+        job_map[jobname]['predecessor'].update(predecessors)
+        job_map[jobname]['successor'].update(successors)
 
-        # Store the job data in a dictionary
-        jobs_data[jobname] = {
+    # Second pass: Ensure all jobs are accounted for as successors
+    for jobname, data in job_map.items():
+        for successor in data['successor']:
+            if successor not in job_map:
+                job_map[successor] = {'predecessor': set(), 'successor': set()}
+                job_map[successor]['predecessor'].add(jobname)
+
+    # Prepare the final data for the DataFrame
+    job_data = []
+    for jobname, data in job_map.items():
+        predecessor_str = '|'.join(data['predecessor']) if data['predecessor'] else "None"
+        successor_str = '|'.join(data['successor']) if data['successor'] else "None"
+        job_data.append({
+            'jobname': jobname,
             'predecessor': predecessor_str,
             'successor': successor_str
-        }
+        })
 
-    # Write the results to a CSV file
-    with open(output_csv_path, mode='w', newline='', encoding='utf-8') as csvfile:
-        fieldnames = ['jobname', 'predecessor', 'successor']
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+    # Create and return the DataFrame
+    return pd.DataFrame(job_data)
 
-        writer.writeheader()
-        for jobname, data in jobs_data.items():
-            writer.writerow({'jobname': jobname, **data})
-
-    print(f"Job details saved to {output_csv_path}")
-
-
-# Specify the input Control-M XML file and output CSV file path
+# Input XML file
 input_file = 'control.xml'
-output_csv = 'job_details.csv'
 
-# Parse and save job details
-parse_control_xml(input_file, output_csv)
+# Parse the XML and create the DataFrame
+df = parse_control_xml_to_df(input_file)
+
+# Save the DataFrame to CSV
+output_file = 'job_details.csv'
+df.to_csv(output_file, index=False)
+
+# Print the DataFrame
+print(df)
