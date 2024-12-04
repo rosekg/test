@@ -1,7 +1,47 @@
- # Automatically trigger on specific branches
-  push:
-    branches:
-      - develop
-      - develop-libration
-      - develop-certified
-      - develop-calibration-certified
+import xml.etree.ElementTree as ET
+import csv
+
+def parse_control_xml(file_path, output_csv_path):
+    # Parse the XML file
+    tree = ET.parse(file_path)
+    root = tree.getroot()
+
+    # Dictionary to store job details
+    jobs_data = {}
+
+    # Iterate through each job in the XML file
+    for job in root.findall('.//job'):  # Adjust the path if needed
+        jobname = job.find('jobname').text if job.find('jobname') is not None else "N/A"
+
+        # Extract predecessors and successors
+        predecessors = [incond.text for incond in job.findall('incond')]
+        successors = [outcond.text for outcond in job.findall('outcond')]
+
+        # Join predecessors and successors with '|'
+        predecessor_str = '|'.join(predecessors) if predecessors else "None"
+        successor_str = '|'.join(successors) if successors else "None"
+
+        # Store the job data in a dictionary
+        jobs_data[jobname] = {
+            'predecessor': predecessor_str,
+            'successor': successor_str
+        }
+
+    # Write the results to a CSV file
+    with open(output_csv_path, mode='w', newline='', encoding='utf-8') as csvfile:
+        fieldnames = ['jobname', 'predecessor', 'successor']
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+
+        writer.writeheader()
+        for jobname, data in jobs_data.items():
+            writer.writerow({'jobname': jobname, **data})
+
+    print(f"Job details saved to {output_csv_path}")
+
+
+# Specify the input Control-M XML file and output CSV file path
+input_file = 'control.xml'
+output_csv = 'job_details.csv'
+
+# Parse and save job details
+parse_control_xml(input_file, output_csv)
