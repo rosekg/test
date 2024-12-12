@@ -1,53 +1,26 @@
-import pandas as pd
+#!/bin/bash
 
-# Sample data with multiple predecessors
-data = {
-    'jobname': ['Job1', 'Job2', 'Job3', 'Job5', 'job6', 'job7', 'job8'],
-    'predecessor': ['jobx', 'Job1', 'Job1', 'Job2', 'jobx', 'job2', 'job5']
-}
-df = pd.DataFrame(data)
+# Input and output file paths
+input_file="tables_list.txt"  # File containing list of table names (one per line)
+output_file="first_partitions.txt"  # Output file to write the results
 
-# Create an empty 'successor' column
-df['successor'] = None
+# Ensure output file is empty
+> "$output_file"
 
-# Function to get all successors recursively
-def get_all_successors(job, df, visited=None):
-    if visited is None:
-        visited = set()
-    
-    # If the job has already been visited, stop recursion to avoid cycles
-    if job in visited:
-        return []
-    
-    # Mark the job as visited
-    visited.add(job)
-    
-    # Find direct successors for the job
-    direct_successors = df[df['predecessor'].str.contains(f'(?<!\w){job}(?!\w)', na=False)]['jobname'].tolist()
-    
-    # If no direct successors, return an empty list
-    if not direct_successors:
-        return []
-    
-    # Collect all successors (direct and indirect) recursively
-    all_successors = set(direct_successors)  # Use a set to avoid duplicates
-    for successor in direct_successors:
-        all_successors.update(get_all_successors(successor, df, visited))  # Recursively find successors
-    
-    return all_successors
+# Loop through each table in the input file
+while IFS= read -r table_name; do
+  # Skip empty lines
+  [ -z "$table_name" ] && continue
 
-# Iterate through the rows to find the successors and update the 'successor' column
-for index, row in df.iterrows():
-    jobname = row['jobname']
-    
-    # Get all unique successors for the current job (including indirect ones)
-    all_successors = get_all_successors(jobname, df)
-    
-    # Join the successors with '|' and update the 'successor' column
-    if all_successors:
-        df.at[index, 'successor'] = '|'.join(sorted(all_successors))  # Sorting to ensure consistent order
-    else:
-        df.at[index, 'successor'] = 'None'
+  # Fetch the first partition for the current table
+  first_partition=$(hive -e "SHOW PARTITIONS $table_name;" | head -n 1)
 
-# Display the final DataFrame
-print(df[['jobname', 'predecessor', 'successor']])
+  # Check if the partition was successfully retrieved
+  if [ -n "$first_partition" ]; then
+    echo "Table: $table_name, First Partition: $first_partition" >> "$output_file"
+  else
+    echo "Table: $table_name, First Partition: NONE" >> "$output_file"
+  fi
+done < "$input_file"
+
+echo "Processing completed. Results saved in $output_file"
