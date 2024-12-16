@@ -1,26 +1,60 @@
 #!/bin/bash
 
-# Input and output file paths
-input_file="tables_list.txt"  # File containing list of table names (one per line)
-output_file="first_partitions.txt"  # Output file to write the results
+# Variables
+INPUT_FILE="hive_queries.txt"                          # Input file containing Hive queries (one per line)
+HIVE_OUTPUT_FILE="hive_query_output.txt"              # Temporary file to store query output
+OUTPUT_FILE="hive_query_results.txt"                  # File to store final output in 'tablename: count' format
 
-# Ensure output file is empty
-> "$output_file"
+# Check if input file exists
+if [ ! -f "$INPUT_FILE" ]; then
+    echo "Error: Input file '$INPUT_FILE' not found."
+    exit 1
+fi
 
-# Loop through each table in the input file
-while IFS= read -r table_name; do
-  # Skip empty lines
-  [ -z "$table_name" ] && continue
+# Clear the output file
+> "$OUTPUT_FILE"
 
-  # Fetch the first partition for the current table
-  first_partition=$(hive -e "SHOW PARTITIONS $table_name;" | head -n 1)
+# Process each query from the input file
+while IFS= read -r HIVE_QUERY; do
+    if [[ -z "$HIVE_QUERY" ]]; then
+        # Skip empty lines
+        continue
+    fi
 
-  # Check if the partition was successfully retrieved
-  if [ -n "$first_partition" ]; then
-    echo "Table: $table_name, First Partition: $first_partition" >> "$output_file"
-  else
-    echo "Table: $table_name, First Partition: NONE" >> "$output_file"
-  fi
-done < "$input_file"
+    echo "Running query: $HIVE_QUERY"
 
-echo "Processing completed. Results saved in $output_file"
+    # Extract table name from the query (assuming the format includes FROM <table_name>)
+    TABLE_NAME=$(echo "$HIVE_QUERY" | grep -oP '(?<=FROM )\w+' | head -1)
+    if [[ -z "$TABLE_NAME" ]]; then
+        TABLE_NAME="UnknownTable"
+    fi
+
+    # Run the Hive query
+    hive -e "$HIVE_QUERY" > $HIVE_OUTPUT_FILE 2>/dev/null
+
+    # Check if the query executed successfully
+    if [ $? -ne 0 ]; then
+        echo "Error: Failed to execute Hive query: $HIVE_QUERY"
+        echo "$TABLE_NAME: Error" >> "$OUTPUT_FILE"
+        continue
+    fi
+
+    # Extract the count value from the output
+    QUERY_COUNT=$(cat $HIVE_OUTPUT_FILE | tail -1 | tr -d '[:space:]')
+
+    # Check if the count is valid
+    if [[ -z "$QUERY_COUNT" || ! "$QUERY_COUNT" =~ ^[0-9]+$ ]]; then
+        echo "Error: Unable to extract count from query output for query: $HIVE_QUERY"
+        echo "$TABLE_NAME: Error" >> "$OUTPUT_FILE"
+        continue
+    fi
+
+    # Write the result to the output file
+    echo "$TABLE_NAME: $QUERY_COUNT" >> "$OUTPUT_FILE"
+
+done < "$INPUT_FILE"
+
+# Cleanup
+rm -f $HIVE_OUTPUT_FILE
+
+exit 0
