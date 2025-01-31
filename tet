@@ -1,19 +1,17 @@
-git filter-repo --commit-callback '
-if commit.committer_date[:10] == b"2023-12-21" or commit.original_id in (b"gghh34", b"obsd54"):
-    commit.message = b""
-    commit.file_changes = [change for change in commit.file_changes if change.path != b"deploy.sh"]
-'
+**Subject:** Clarification on Document Submission for 80D Disability Category  
 
+Dear [Recipient's Name],  
 
+I hope this email finds you well.  
 
+I am writing to seek clarification on the process of submitting actual documents under the 80D disability category for the claim of ₹75,000. Could you please provide the details on the following?  
+- What specific documents are required for this submission?  
+- Is there any specific format or process to be followed?  
+- Are there any additional guidelines or timelines to be aware of?  
 
+Your guidance on this matter would be greatly appreciated. Please let me know if any further information is required from my side.  
 
+Looking forward to your response.  
 
-git clone <repository-url>
-cd <repository>
-
-
-git filter-repo --path <file-or-directory> --commit-callback '
-    if commit.committer_date < b"2023-01-01T00:00:00":
-        commit.message = b""
-'
+Best regards,  
+Kirubakaran  
