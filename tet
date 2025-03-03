@@ -1,65 +1,53 @@
-ACE 2025
+**Delivery Excellence - Project Performance**  
 
-Goal Sheet
-Delivery Excellence - Project Performance	
-Progress on individual KRAs & milestones as per the Project charter and assigned role. (KPIs e.g. - Quality, Quantity, timeliness - of the expected deliverables, Self discipline & Integrity, Availability for business urgencies, stakeholder communication, etc.)
-•	Proactively monitored Big Data pipelines and resolved production issues to ensure high availability.
-•	Managed and maintained Jenkins CI/CD pipelines, ensuring smooth deployments and troubleshooting failures.
-•	Optimized Spark job performance and cluster configurations for efficient resource utilization.
-•	Provided root cause analysis (RCA) for recurring incidents and implemented preventive measures.
-•	Supported AWS-based Big Data infrastructure, AWS Devops.
-•	Configured and fine-tuned monitoring & alerting tools to detect and address system anomalies.
-•	Ensured timely communication with stakeholders, providing updates on critical incidents and resolutions.
-•	Automated routine maintenance tasks (Unprocessed file), reducing manual intervention and improving efficiency.
-•	Maintained compliance with security policies and best practices for data handling and infrastructure.
-•	Documented processes, troubleshooting guides, and best practices for team knowledge sharing.
-•	Provided strong leadership to project teams, fostering a collaborative and motivated work environment that contributed to project success.
-•	Received positive feedback from clients, indicating a high level of satisfaction with project deliveries.
-•	Proactively identified and addressed potential issues, preventing them from escalating and impacting project timelines.
+- Monitored Big Data pipelines, ensuring high availability and quick issue resolution.  
+- Managed Jenkins CI/CD pipelines, troubleshooting deployment failures.  
+- Optimized Spark jobs and cluster configurations for efficiency.  
+- Conducted RCA for recurring issues and implemented preventive measures.  
+- Supported AWS-based Big Data infrastructure and DevOps.  
+- Automated maintenance tasks, reducing manual effort.  
+- Ensured timely stakeholder communication on critical issues.  
+- Maintained security compliance and best practices.  
+- Documented processes for knowledge sharing.  
+- Fostered collaboration, receiving positive client feedback.  
 
+**Delivery Excellence - Client Satisfaction**  
 
-Delivery Excellence- Client Satisfaction	
-CSAT Score / Qualitative feedback from clients or Geo delivery leaders
-•	Provided weekend and on-call support, ensuring 24/7 availability for critical incidents and minimizing client impact.
-•	Delivered timely patching support, ensuring systems remained secure and up to date without disrupting business operations.
-•	Proactively communicated with clients, addressing concerns and aligning with business needs.
-•	Resolved high-priority incidents efficiently, contributing to improved CSAT scores and client trust.
-•	Implemented structured post-incident reviews, ensuring learnings were incorporated to prevent recurrence.
-•	Actively gathered and incorporated client feedback, enhancing service quality and delivery.
-•	Ensured seamless data pipeline operations, providing clients with reliable and accurate data processing.
-•	Maintained client-focused approach, ensuring proactive problem-solving rather than reactive fixes.
-•	Contributed to a collaborative work environment, ensuring effective coordination across teams for better service delivery.
+- Provided **weekend and on-call support**, ensuring 24/7 availability for critical incidents.  
+- Delivered **timely patching support**, maintaining security without business disruption.  
+- Proactively **communicated with clients**, addressing concerns and aligning with business needs.  
+- Resolved **high-priority incidents efficiently**, improving CSAT scores and client trust.  
+- Conducted **post-incident reviews**, implementing learnings to prevent recurrence.  
+- Gathered and incorporated **client feedback**, enhancing service quality.  
+- Ensured **seamless data pipeline operations**, providing accurate and reliable data.  
+- Maintained a **client-focused approach**, proactively solving issues.  
+- Fostered **cross-team collaboration**, ensuring smooth service delivery.  
+- Contributed to a **positive client experience**, driving long-term satisfaction.  
 
-Capability Enhancement & Innovation	- Capability Enhancement & Innovation	
-No of ideas generated and executed / Initiatives owned / Building new assets and contribution to CoEs Upskilling / Cross-skilling / New technical certifications acquired relevant to the BU & Project specific requirements Industry & Domain specific learnings through webinars, industry conferences, thought leadership, PoV / Articles, White papers etc. Mentoring & coaching team and Preparing annual Training Plan as per Project + Industry events & learnings shared with the team, Knowledge buildng / Knowledge Management initiatives for the team
+**Capability Enhancement & Innovation**  
 
-•	Proposed and executed automation initiatives to improve Big Data pipeline efficiency and reduce manual interventions.
-•	Led optimizations in Spark jobs, resulting in improved performance and reduced resource consumption.
-•	Contributed to Jenkins pipeline enhancements, ensuring smoother CI/CD deployments.
-•	Upskilled in AWS services, applying learnings to enhance cloud-based Big Data solutions.
-•	Acquired new technical certifications relevant to Big Data, cloud, or DevOps.
-•	Attended industry webinars and conferences, gaining insights into best practices and emerging trends.
-•	Conducted knowledge-sharing sessions for the team, improving overall technical capabilities.
-•	Documented best practices and troubleshooting guides, enhancing the team's Knowledge Management.
-•	Developed innovative solutions for operational challenges, improving system reliability and scalability. 
-•	Completed below courses, which are helped me to work new areas in my projects. 
-o	AWS Data Engineer
-o	Azure data engineer
-o	Azure Databricks 
-o	AWS & Azure Devops 
-o	Python in masterclass 
+- Proposed and executed **automation initiatives**, reducing manual interventions in Big Data pipelines.  
+- Optimized **Spark jobs**, improving performance and reducing resource consumption.  
+- Enhanced **Jenkins pipelines**, ensuring smoother CI/CD deployments.  
+- Upskilled in **AWS services**, applying learnings to cloud-based Big Data solutions.  
+- Earned **technical certifications** in Big Data, Cloud, and DevOps.  
+- Attended **industry webinars and conferences**, gaining insights into emerging trends.  
+- Conducted **knowledge-sharing sessions**, improving team capabilities.  
+- Documented **best practices and troubleshooting guides** for Knowledge Management.  
+- Developed **innovative solutions** for operational challenges, enhancing system reliability.  
+- Completed courses in **AWS Data Engineer, Azure Data Engineer, Databricks, DevOps, and Python Masterclass**.  
 
 
+**Utilisation/Productivity**  
 
-Utilisation/Productivity	- Utilisation	
-Self Utilization Ã¢?? target > 80% (on direct / in-direct role or contributions) as per the assigned role (Billability as per project goals.) Not more than 30 days on Bench.
-•	Maintained high utilization (>80%), ensuring continuous contribution to project deliverables.
-•	Actively engaged in multiple projects, ensuring optimal resource allocation and efficiency.
-•	Took ownership of critical Big Data operations, ensuring seamless execution of tasks.
-•	Provided on-call, weekend, and patching support, adding value beyond standard billable hours.
-•	Minimized downtime and ensured quick resolution of issues, enhancing overall team productivity.
-•	Engaged in cross-functional collaboration, contributing to both development and operational goals.
-•	Took proactive initiatives to automate manual processes, reducing effort and improving efficiency.
+- Maintained **high utilization (>80%)**, ensuring continuous contribution to project deliverables.  
+- Engaged in **multiple projects**, optimizing resource allocation and efficiency.  
+- Took ownership of **critical Big Data operations**, ensuring seamless execution.  
+- Provided **on-call, weekend, and patching support**, adding value beyond billable hours.  
+- Minimized **downtime**, ensuring quick issue resolution and improved productivity.  
+- Collaborated **cross-functionally**, contributing to both development and operations.  
+- Automated **manual processes**, reducing effort and improving efficiency.  
+
 
 
 Achievement Summary
@@ -100,5 +88,3 @@ Feedback to supervisor:
 •	Encouraged continuous learning and skill development.
 •	Recognized team efforts and contributions, boosting motivation.
 •	Provided constructive feedback, helping in performance improvement.
-
-
