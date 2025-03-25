@@ -1,1 +1,27 @@
-Thank you for the kind words and appreciation. I’m glad to hear that the Data Tagging Tool has received positive feedback from the teams. It was a collaborative effort, and I’m grateful for the opportunity to contribute.
+#!/bin/bash
+
+# Check if process name is provided
+if [ -z "$1" ]; then
+    echo "Usage: $0 <nodejs_process_name>"
+    exit 1
+fi
+
+PROCESS_NAME=$1
+
+# Find and kill the Node.js process by name
+PID=$(pgrep -f "node.*$PROCESS_NAME")
+
+if [ -z "$PID" ]; then
+    echo "No Node.js process found with name: $PROCESS_NAME"
+    exit 1
+fi
+
+echo "Killing Node.js process: $PROCESS_NAME (PID: $PID)"
+kill -9 $PID
+
+# Confirm the process is killed
+if [ $? -eq 0 ]; then
+    echo "Process $PROCESS_NAME (PID: $PID) killed successfully."
+else
+    echo "Failed to kill process $PROCESS_NAME."
+fi
