@@ -1,27 +1,69 @@
-#!/bin/bash
+input {
+  file {
+    path => "/path/to/input.log"
+    start_position => "beginning"
+    sincedb_path => "/dev/null"
+  }
+}
 
-# Check if process name is provided
-if [ -z "$1" ]; then
-    echo "Usage: $0 <nodejs_process_name>"
-    exit 1
-fi
+filter {
+  # Parse CSV message, assuming comma-separated values
+  csv {
+    separator => ","
+    columns => ["jobname", "col2", "col3", "col4", "col5"]  # Modify as per your columns
+  }
 
-PROCESS_NAME=$1
+  # Query historical index for job runtime
+  elasticsearch {
+    hosts => ["http://your-elasticsearch-host:9200"]
+    index => "history_index"
+    query_template => "/path/to/query.json"
+    fields => { "start_timestamp" => "start_time", "end_timestamp" => "end_time" }
+  }
 
-# Find and kill the Node.js process by name
-PID=$(pgrep -f "node.*$PROCESS_NAME")
+  # Compute job duration in seconds and format as HH:MM:SS
+  ruby {
+    code => '
+      if event.get("start_time") && event.get("end_time")
+        duration_sec = event.get("end_time").to_i - event.get("start_time").to_i
+        hours = duration_sec / 3600
+        minutes = (duration_sec % 3600) / 60
+        seconds = duration_sec % 60
+        formatted_duration = sprintf("%02d:%02d:%02d", hours, minutes, seconds)
+        event.set("job_duration", formatted_duration)
+      end
+    '
+  }
 
-if [ -z "$PID" ]; then
-    echo "No Node.js process found with name: $PROCESS_NAME"
-    exit 1
-fi
+  # Aggregate last 10 days durations
+  aggregate {
+    task_id => "%{jobname}"
+    code => '
+      map["durations"] ||= []
+      duration_str = event.get("job_duration")
+      if duration_str
+        h, m, s = duration_str.split(":").map(&:to_i)
+        duration_sec = h * 3600 + m * 60 + s
+        map["durations"] << duration_sec
+      end
+      if map["durations"].size > 10
+        map["durations"].shift
+      end
+      avg_duration_sec = map["durations"].sum / map["durations"].size rescue 0
+      avg_h = avg_duration_sec / 3600
+      avg_m = (avg_duration_sec % 3600) / 60
+      avg_s = avg_duration_sec % 60
+      avg_formatted = sprintf("%02d:%02d:%02d", avg_h, avg_m, avg_s)
+      event.set("avg_job_duration", avg_formatted)
+    '
+    push_previous_map_as_event => true
+    timeout => 86400  # 1 day
+  }
+}
 
-echo "Killing Node.js process: $PROCESS_NAME (PID: $PID)"
-kill -9 $PID
-
-# Confirm the process is killed
-if [ $? -eq 0 ]; then
-    echo "Process $PROCESS_NAME (PID: $PID) killed successfully."
-else
-    echo "Failed to kill process $PROCESS_NAME."
-fi
+output {
+  elasticsearch {
+    hosts => ["http://your-elasticsearch-host:9200"]
+    index => "new_index"
+  }
+}
