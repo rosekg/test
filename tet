@@ -1,17 +1,31 @@
 {
   "query": {
     "bool": {
+      "must": [
+        {
+          "match": {
+            "job_name": "{{job_name}}"
+          }
+        },
+        {
+          "term": {
+            "job_status_desc.keyword": "PASSED"
+          }
+        }
+      ],
       "filter": [
         {
           "range": {
-            "start_timestamp": {
+            "job_start_time": {
               "gte": "now-10d/d",
               "lte": "now"
             }
           }
         },
         {
-          "exists": { "field": "end_timestamp" }
+          "exists": {
+            "field": "job_end_time"
+          }
         }
       ]
     }
@@ -20,26 +34,9 @@
     "avg_duration": {
       "scripted_metric": {
         "init_script": "state.durations = []",
-        "map_script": """
-          if (doc.containsKey('start_timestamp') && doc.containsKey('end_timestamp') &&
-              !doc['start_timestamp'].empty && !doc['end_timestamp'].empty) {
-            def duration = (doc['end_timestamp'].value.toInstant().toEpochMilli() -
-                            doc['start_timestamp'].value.toInstant().toEpochMilli()) / 60000.0;
-            state.durations.add(duration);
-          }
-        """,
+        "map_script": "if (doc.containsKey('job_start_time') && doc.containsKey('job_end_time') && !doc['job_start_time'].empty && !doc['job_end_time'].empty) { def duration = (doc['job_end_time'].value.toInstant().toEpochMilli() - doc['job_start_time'].value.toInstant().toEpochMilli()) / 60000.0; state.durations.add(duration); }",
         "combine_script": "return state.durations",
-        "reduce_script": """
-          double total = 0;
-          int count = 0;
-          for (a in states) {
-            for (d in a) {
-              total += d;
-              count++;
-            }
-          }
-          return count > 0 ? total / count : 0;
-        """
+        "reduce_script": "double total = 0; int count = 0; for (a in states) { for (d in a) { total += d; count++; } } return count > 0 ? total / count : 0;"
       }
     }
   }
