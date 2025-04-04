@@ -1,77 +1,46 @@
-filter {
-  mutate {
-    add_field => { "jobname" => "Job_A" }  # Hardcoded job name
-  }
-
-  elasticsearch {
-    hosts => ["https://your-elasticsearch-host:9200"]
-    index => "history_index"
-    query => '
-    {
-      "query": {
-        "bool": {
-          "must": [
-            { "match": { "jobname": "%{jobname}" } },
-            { "range": { "start_timestamp": { "gte": "now-10d/d", "lte": "now/d" } } }
-          ]
+{
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "range": {
+            "start_timestamp": {
+              "gte": "now-10d/d",
+              "lte": "now"
+            }
+          }
+        },
+        {
+          "exists": { "field": "end_timestamp" }
         }
-      },
-      "size": 1000,
-      "_source": ["jobname", "start_timestamp", "end_timestamp"]
-    }'
-    fields => {
-      "start_timestamp" => "start_time"
-      "end_timestamp" => "end_time"
+      ]
+    }
+  },
+  "aggs": {
+    "avg_duration": {
+      "scripted_metric": {
+        "init_script": "state.durations = []",
+        "map_script": """
+          if (doc.containsKey('start_timestamp') && doc.containsKey('end_timestamp') &&
+              !doc['start_timestamp'].empty && !doc['end_timestamp'].empty) {
+            def duration = (doc['end_timestamp'].value.toInstant().toEpochMilli() -
+                            doc['start_timestamp'].value.toInstant().toEpochMilli()) / 60000.0;
+            state.durations.add(duration);
+          }
+        """,
+        "combine_script": "return state.durations",
+        "reduce_script": """
+          double total = 0;
+          int count = 0;
+          for (a in states) {
+            for (d in a) {
+              total += d;
+              count++;
+            }
+          }
+          return count > 0 ? total / count : 0;
+        """
+      }
     }
   }
-
-  ruby {
-    init => '@total_runtime = 0; @count = 0; @avg_runtime = "00:00:00"'
-    code => '
-      require "time"
-      start_time = event.get("start_time")
-      end_time = event.get("end_time")
-
-      if start_time && end_time
-        start_t = Time.parse(start_time)
-        end_t = Time.parse(end_time)
-        duration_seconds = (end_t - start_t).to_i
-
-        # Store duration for averaging
-        @total_runtime += duration_seconds
-        @count += 1
-
-        # Format individual runtime
-        hours = duration_seconds / 3600
-        minutes = (duration_seconds % 3600) / 60
-        seconds = duration_seconds % 60
-        formatted_duration = sprintf("%02d:%02d:%02d", hours, minutes, seconds)
-        event.set("runtime", formatted_duration)
-      end
-    '
-  }
-}
-
-# Compute Average in a Separate Aggregate Filter
-filter {
-  ruby {
-    code => '
-      if @count > 0
-        avg_seconds = @total_runtime / @count
-        avg_hours = avg_seconds / 3600
-        avg_minutes = (avg_seconds % 3600) / 60
-        avg_seconds = avg_seconds % 60
-
-        @avg_runtime = sprintf("%02d:%02d:%02d", avg_hours, avg_minutes, avg_seconds)
-      end
-    '
-  }
-
-  mutate {
-    add_field => { "avg_runtime" => "%{@avg_runtime}" }
-  }
-}
-
-output {
-  stdout { codec => json }
 }
