@@ -1,43 +1,23 @@
-{
-  "query": {
-    "bool": {
-      "must": [
-        {
-          "match": {
-            "job_name": "{{job_name}}"
-          }
-        },
-        {
-          "term": {
-            "job_status_desc.keyword": "PASSED"
-          }
-        }
-      ],
-      "filter": [
-        {
-          "range": {
-            "job_start_time": {
-              "gte": "now-10d/d",
-              "lte": "now"
-            }
-          }
-        },
-        {
-          "exists": {
-            "field": "job_end_time"
-          }
-        }
-      ]
-    }
-  },
-  "aggs": {
-    "avg_duration": {
-      "scripted_metric": {
-        "init_script": "state.durations = []",
-        "map_script": "if (doc.containsKey('job_start_time') && doc.containsKey('job_end_time') && !doc['job_start_time'].empty && !doc['job_end_time'].empty) { def duration = (doc['job_end_time'].value.toInstant().toEpochMilli() - doc['job_start_time'].value.toInstant().toEpochMilli()) / 60000.0; state.durations.add(duration); }",
-        "combine_script": "return state.durations",
-        "reduce_script": "double total = 0; int count = 0; for (a in states) { for (d in a) { total += d; count++; } } return count > 0 ? total / count : 0;"
-      }
-    }
+filter {
+  ruby {
+    code => '
+      require "time"
+      start_time = event.get("start_time")
+      end_time = event.get("end_time")
+
+      if start_time && end_time
+        start = Time.parse(start_time)
+        finish = Time.parse(end_time)
+        duration = finish - start
+
+        hours = (duration / 3600).floor
+        minutes = ((duration % 3600) / 60).floor
+        seconds = (duration % 60).floor
+        millis = ((duration % 1) * 1000).round
+
+        pretty_time = format("%02d:%02d:%02d.%03d", hours, minutes, seconds, millis)
+        event.set("run_time", pretty_time)
+      end
+    '
   }
 }
