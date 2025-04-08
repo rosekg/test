@@ -1,66 +1,26 @@
-input {
-  elasticsearch {
-    hosts => ["http://localhost:9200"]
-    index => "your_index_name"
-    query => '{
-      "query": {
-        "range": {
-          "start_time": {
-            "gte": "now-10d/d",
-            "lt": "now/d"
-          }
-        }
-      }
-    }'
-    scroll => "5m"
-    docinfo => true
-  }
-}
+import pandas as pd
 
-filter {
-  date {
-    match => ["start_time", "ISO8601"]
-    target => "start_time_parsed"
-  }
+def extract_wf_predecessors_with_runas(df):
+    # Step 1: Combine Jobname and RunAs info
+    df['Job_RunAs'] = df['Jobname'] + '|' + df['RunAs']
 
-  date {
-    match => ["end_time", "ISO8601"]
-    target => "end_time_parsed"
-  }
+    # Step 2: Split Predecessor column and explode
+    df_exploded = df.assign(
+        Predecessor=df['Predecessor'].str.split('|')
+    ).explode('Predecessor')
 
-  ruby {
-    code => '
-      if event.get("start_time_parsed") && event.get("end_time_parsed")
-        duration = (event.get("end_time_parsed") - event.get("start_time_parsed")) / 60.0
-        event.set("run_time_min", duration)
-      end
-    '
-  }
-}
+    # Step 3: Filter rows containing 'WF' or 'WORKFLOW'
+    df_filtered = df_exploded[
+        df_exploded['Predecessor'].str.contains(r'\b(WF|WORKFLOW)', case=False, na=False)
+    ]
 
-aggregate {
-  task_id => "%{jobname}"
-  code => '
-    map["count"] ||= 0
-    map["total_runtime"] ||= 0.0
-    map["count"] += 1
-    map["total_runtime"] += event.get("run_time_min")
-  '
-  push_map_as_event_on_timeout => true
-  timeout_task_id_field => "jobname"
-  timeout => 60
-  timeout_tags => ["_aggregatetimeout"]
-  timeout_code => '
-    event.set("avg_run_time", map["total_runtime"] / map["count"])
-  '
-}
+    # Step 4: Rename and group by WF predecessor
+    df_filtered = df_filtered.rename(columns={'Predecessor': 'WF_Pred'})
+    grouped = df_filtered.groupby('WF_Pred')['Job_RunAs'].apply(list).reset_index()
 
-output {
-  if "aggregatetimeout" in [tags] {
-    csv {
-      fields => ["jobname", "avg_run_time"]
-      path => "/path/to/output/job_runtime.csv"
-      flush_interval => 1
-    }
-  }
-}
+    # Step 5: Spread to multiple columns
+    max_jobs = grouped['Job_RunAs'].apply(len).max()
+    for i in range(max_jobs):
+        grouped[f'Job_{i+1}'] = grouped['Job_RunAs'].apply(lambda x: x[i] if i < len(x) else None)
+
+    return grouped.drop(columns='Job_RunAs')
