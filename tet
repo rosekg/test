@@ -1,23 +1,66 @@
+input {
+  elasticsearch {
+    hosts => ["http://localhost:9200"]
+    index => "your_index_name"
+    query => '{
+      "query": {
+        "range": {
+          "start_time": {
+            "gte": "now-10d/d",
+            "lt": "now/d"
+          }
+        }
+      }
+    }'
+    scroll => "5m"
+    docinfo => true
+  }
+}
+
 filter {
+  date {
+    match => ["start_time", "ISO8601"]
+    target => "start_time_parsed"
+  }
+
+  date {
+    match => ["end_time", "ISO8601"]
+    target => "end_time_parsed"
+  }
+
   ruby {
     code => '
-      require "time"
-      start_time = event.get("start_time")
-      end_time = event.get("end_time")
-
-      if start_time && end_time
-        start = Time.parse(start_time)
-        finish = Time.parse(end_time)
-        duration = finish - start
-
-        hours = (duration / 3600).floor
-        minutes = ((duration % 3600) / 60).floor
-        seconds = (duration % 60).floor
-        millis = ((duration % 1) * 1000).round
-
-        pretty_time = format("%02d:%02d:%02d.%03d", hours, minutes, seconds, millis)
-        event.set("run_time", pretty_time)
+      if event.get("start_time_parsed") && event.get("end_time_parsed")
+        duration = (event.get("end_time_parsed") - event.get("start_time_parsed")) / 60.0
+        event.set("run_time_min", duration)
       end
     '
+  }
+}
+
+aggregate {
+  task_id => "%{jobname}"
+  code => '
+    map["count"] ||= 0
+    map["total_runtime"] ||= 0.0
+    map["count"] += 1
+    map["total_runtime"] += event.get("run_time_min")
+  '
+  push_map_as_event_on_timeout => true
+  timeout_task_id_field => "jobname"
+  timeout => 60
+  timeout_tags => ["_aggregatetimeout"]
+  timeout_code => '
+    event.set("avg_run_time", map["total_runtime"] / map["count"])
+  '
+}
+
+output {
+  if "aggregatetimeout" in [tags] {
+    csv {
+      fields => ["jobname", "avg_run_time"]
+      path => "/path/to/output/job_runtime.csv"
+      flush_interval => 1
+    }
   }
 }
