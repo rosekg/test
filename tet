@@ -1,26 +1,36 @@
 import pandas as pd
 
-def extract_wf_predecessors_with_runas(df):
-    # Step 1: Combine Jobname and RunAs info
-    df['Job_RunAs'] = df['Jobname'] + '|' + df['RunAs']
+# Sample data
+df1 = pd.DataFrame({
+    'jobname': ['wf_job1', 'wf_job2', 'other_job']
+})
 
-    # Step 2: Split Predecessor column and explode
-    df_exploded = df.assign(
-        Predecessor=df['Predecessor'].str.split('|')
-    ).explode('Predecessor')
+df2 = pd.DataFrame({
+    'successor': ['jobA', 'jobB', 'jobC', 'jobD'],
+    'predecessor': ['wf_job1', 'wf_job1', 'wf_job2', 'wf_job2'],
+    'runas': ['user1', 'user2', 'user3', 'user4']
+})
 
-    # Step 3: Filter rows containing 'WF' or 'WORKFLOW'
-    df_filtered = df_exploded[
-        df_exploded['Predecessor'].str.contains(r'\b(WF|WORKFLOW)', case=False, na=False)
-    ]
+# Filter only workflow jobs in df1
+workflow_jobs = df1[df1['jobname'].str.startswith('wf_')].copy()
 
-    # Step 4: Rename and group by WF predecessor
-    df_filtered = df_filtered.rename(columns={'Predecessor': 'WF_Pred'})
-    grouped = df_filtered.groupby('WF_Pred')['Job_RunAs'].apply(list).reset_index()
+# Prepare the output DataFrame
+output = workflow_jobs.copy()
 
-    # Step 5: Spread to multiple columns
-    max_jobs = grouped['Job_RunAs'].apply(len).max()
-    for i in range(max_jobs):
-        grouped[f'Job_{i+1}'] = grouped['Job_RunAs'].apply(lambda x: x[i] if i < len(x) else None)
+# Loop over each workflow job and collect successors and runas
+results = []
+for index, row in workflow_jobs.iterrows():
+    job = row['jobname']
+    matched = df2[df2['predecessor'] == job]
+    
+    result_row = {'jobname': job}
+    for i, (_, match_row) in enumerate(matched.iterrows(), start=1):
+        result_row[f'successor_{i}'] = match_row['successor']
+        result_row[f'runas_{i}'] = match_row['runas']
+    
+    results.append(result_row)
 
-    return grouped.drop(columns='Job_RunAs')
+# Final DataFrame
+final_df = pd.DataFrame(results)
+
+print(final_df)
