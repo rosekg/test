@@ -1,36 +1,56 @@
-import pandas as pd
+const { Client } = require('@elastic/elasticsearch');
+const express = require('express');
+const bodyParser = require('body-parser');
 
-# Sample data
-df1 = pd.DataFrame({
-    'jobname': ['wf_job1', 'wf_job2', 'other_job']
-})
+const app = express();
+app.use(bodyParser.json());
 
-df2 = pd.DataFrame({
-    'successor': ['jobA', 'jobB', 'jobC', 'jobD'],
-    'predecessor': ['wf_job1', 'wf_job1', 'wf_job2', 'wf_job2'],
-    'runas': ['user1', 'user2', 'user3', 'user4']
-})
+// Elasticsearch client setup
+const esClient = new Client({ node: 'http://localhost:9200' });
 
-# Filter only workflow jobs in df1
-workflow_jobs = df1[df1['jobname'].str.startswith('wf_')].copy()
+// Bulk update API endpoint
+app.post('/api/bulkUpdate', async (req, res) => {
+  const updates = req.body; // Expecting an array of update objects
 
-# Prepare the output DataFrame
-output = workflow_jobs.copy()
+  if (!Array.isArray(updates) || updates.length === 0) {
+    return res.status(400).json({ message: 'Invalid update payload.' });
+  }
 
-# Loop over each workflow job and collect successors and runas
-results = []
-for index, row in workflow_jobs.iterrows():
-    job = row['jobname']
-    matched = df2[df2['predecessor'] == job]
-    
-    result_row = {'jobname': job}
-    for i, (_, match_row) in enumerate(matched.iterrows(), start=1):
-        result_row[f'successor_{i}'] = match_row['successor']
-        result_row[f'runas_{i}'] = match_row['runas']
-    
-    results.append(result_row)
+  const bulkOps = [];
 
-# Final DataFrame
-final_df = pd.DataFrame(results)
+  updates.forEach((doc) => {
+    bulkOps.push({
+      update: {
+        _index: doc.index,
+        _id: doc.id,
+      },
+    });
 
-print(final_df)
+    bulkOps.push({
+      doc: doc.rawRecord,
+      doc_as_upsert: true, // Optional: creates the doc if it doesn't exist
+    });
+  });
+
+  try {
+    const result = await esClient.bulk({ refresh: true, body: bulkOps });
+
+    if (result.errors) {
+      const errorItems = result.items.filter((item) => item.update && item.update.error);
+      return res.status(207).json({
+        message: 'Some updates failed.',
+        errors: errorItems,
+      });
+    }
+
+    return res.status(200).json({ message: 'Bulk update successful.' });
+  } catch (error) {
+    console.error('Bulk update failed:', error);
+    return res.status(500).json({ message: 'Bulk update failed.', error });
+  }
+});
+
+// Start server
+app.listen(3000, () => {
+  console.log('Server running on port 3000');
+});
