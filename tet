@@ -1,24 +1,34 @@
-const { Client } = require('@elastic/elasticsearch');
 const express = require('express');
 const bodyParser = require('body-parser');
+const { Client } = require('@elastic/elasticsearch');
 
 const app = express();
 app.use(bodyParser.json());
 
-// Elasticsearch client setup
-const esClient = new Client({ node: 'http://localhost:9200' });
+// Primary Elasticsearch client
+const primaryClient = new Client({
+  node: 'http://localhost:9200', // Change this to your actual primary ES node
+});
 
-// Bulk update API endpoint
+// Secondary Elasticsearch client
+const secondaryClient = new Client({
+  node: 'http://localhost:9201', // Change this to your actual secondary ES node
+});
+
+// Bulk update endpoint
 app.post('/api/bulkUpdate', async (req, res) => {
-  const updates = req.body; // Expecting an array of update objects
+  const updates = req.body;
 
   if (!Array.isArray(updates) || updates.length === 0) {
-    return res.status(400).json({ message: 'Invalid update payload.' });
+    return res.status(400).json({ message: 'Invalid or empty bulk payload.' });
   }
 
   const bulkOps = [];
 
+  // Build bulk operation payload
   updates.forEach((doc) => {
+    if (!doc.index || !doc.id || !doc.rawRecord) return;
+
     bulkOps.push({
       update: {
         _index: doc.index,
@@ -28,29 +38,49 @@ app.post('/api/bulkUpdate', async (req, res) => {
 
     bulkOps.push({
       doc: doc.rawRecord,
-      doc_as_upsert: true, // Optional: creates the doc if it doesn't exist
+      doc_as_upsert: true, // Optional: create if not found
     });
   });
 
   try {
-    const result = await esClient.bulk({ refresh: true, body: bulkOps });
+    // Update primary cluster
+    const primaryResult = await primaryClient.bulk({ refresh: true, body: bulkOps });
 
-    if (result.errors) {
-      const errorItems = result.items.filter((item) => item.update && item.update.error);
+    // Update secondary cluster
+    const secondaryResult = await secondaryClient.bulk({ refresh: true, body: bulkOps });
+
+    const errors = [];
+
+    if (primaryResult.errors) {
+      const primaryErrors = primaryResult.items.filter((item) => item.update && item.update.error);
+      errors.push({ cluster: 'primary', issues: primaryErrors });
+    }
+
+    if (secondaryResult.errors) {
+      const secondaryErrors = secondaryResult.items.filter((item) => item.update && item.update.error);
+      errors.push({ cluster: 'secondary', issues: secondaryErrors });
+    }
+
+    if (errors.length > 0) {
       return res.status(207).json({
-        message: 'Some updates failed.',
-        errors: errorItems,
+        message: 'Bulk update partially succeeded with errors.',
+        errors,
       });
     }
 
-    return res.status(200).json({ message: 'Bulk update successful.' });
+    return res.status(200).json({
+      message: 'Bulk update successful on both primary and secondary clients.',
+    });
   } catch (error) {
     console.error('Bulk update failed:', error);
-    return res.status(500).json({ message: 'Bulk update failed.', error });
+    return res.status(500).json({
+      message: 'Bulk update failed due to exception.',
+      error: error.message || error,
+    });
   }
 });
 
-// Start server
+// Start the server
 app.listen(3000, () => {
-  console.log('Server running on port 3000');
+  console.log('Bulk update server running on port 3000');
 });
