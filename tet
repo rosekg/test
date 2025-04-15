@@ -1,21 +1,58 @@
-POST your_index_name/_update_by_query
-{
-  "query": {
-    "range": {
-      "end_time": {
-        "gte": "now-1y/y"
-      }
+from elasticsearch import Elasticsearch
+import pandas as pd
+
+# Connect to Elasticsearch
+es = Elasticsearch("http://localhost:9200")  # Update if needed
+
+# Query with date filter and aggregation
+query = {
+    "size": 0,
+    "query": {
+        "bool": {
+            "filter": [
+                {
+                    "range": {
+                        "timestamp": {
+                            "gte": "now-10d/d",
+                            "lte": "now"
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "aggs": {
+        "jobs": {
+            "terms": {
+                "field": "job_name.keyword",
+                "size": 10000
+            },
+            "aggs": {
+                "avg_runtime": {
+                    "avg": {
+                        "script": {
+                            "source": "doc['duration'].value / 60"
+                        }
+                    }
+                }
+            }
+        }
     }
-  },
-  "script": {
-    "source": """
-      if (ctx._source.containsKey('start_time') && ctx._source.containsKey('end_time')) {
-        ZonedDateTime start = ZonedDateTime.parse(ctx._source.start_time);
-        ZonedDateTime end = ZonedDateTime.parse(ctx._source.end_time);
-        long durationInMinutes = java.time.Duration.between(start, end).toMinutes();
-        ctx._source.job_duration_mins = durationInMinutes;
-      }
-    """,
-    "lang": "painless"
-  }
 }
+
+# Execute the query
+response = es.search(index="your_index_name", body=query)
+
+# Build DataFrame
+records = []
+for bucket in response['aggregations']['jobs']['buckets']:
+    records.append({
+        "Job Name": bucket['key'],
+        "Average Run Time (mins)": round(bucket['avg_runtime']['value'], 2) if bucket['avg_runtime']['value'] else 0
+    })
+
+df = pd.DataFrame(records)
+
+# Save to CSV
+df.to_csv("average_job_runtime.csv", index=False)
+print("Saved to average_job_runtime.csv")
