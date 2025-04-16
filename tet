@@ -1,58 +1,18 @@
-input {
-  elasticsearch {
-    hosts => ["http://localhost:9200"]
-    index => "your-index-name"
-    query => '{
-      "size": 0,
-      "aggs": {
-        "jobs": {
-          "terms": {
-            "field": "jobname.keyword",
-            "size": 1000
-          },
-          "aggs": {
-            "avg_time": {
-              "avg": {
-                "field": "time_field"
-              }
-            }
-          }
-        }
-      }
-    }'
-    tags => ["average_data"]
-    schedule => "* * * * *"
-  }
-}
-
 filter {
-  if "average_data" in [tags] {
-    split { field => "[aggregations][jobs][buckets]" }
+  ruby {
+    code => '
+      job_duration = event.get("job_duration")
+      avg_runtime = event.get("job_average_run_mins")
 
-    mutate {
-      add_field => {
-        "jobname" => "%{[aggregations][jobs][buckets][key]}"
-        "avgtime" => "%{[aggregations][jobs][buckets][avg_time][value]}"
-      }
-    }
-
-    mutate {
-      convert => {
-        "avgtime" => "float"
-      }
-      remove_field => ["@version", "@timestamp", "tags", "aggregations"]
-    }
-  }
-}
-
-output {
-  if "average_data" in [tags] {
-    csv {
-      path => "/path/to/output/avg_jobtime.csv"
-      fields => ["jobname", "avgtime"]
-      csv_options => {
-        "write_headers" => true
-      }
-    }
+      if job_duration && avg_runtime
+        if job_duration > avg_runtime
+          event.set("flag", -1)
+        elsif job_duration == avg_runtime
+          event.set("flag", 0)
+        else
+          event.set("flag", 1)
+        end
+      end
+    '
   }
 }
