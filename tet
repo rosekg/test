@@ -1,58 +1,58 @@
-from elasticsearch import Elasticsearch
-import pandas as pd
-
-# Connect to Elasticsearch
-es = Elasticsearch("http://localhost:9200")  # Update if needed
-
-# Query with date filter and aggregation
-query = {
-    "size": 0,
-    "query": {
-        "bool": {
-            "filter": [
-                {
-                    "range": {
-                        "timestamp": {
-                            "gte": "now-10d/d",
-                            "lte": "now"
-                        }
-                    }
-                }
-            ]
-        }
-    },
-    "aggs": {
+input {
+  elasticsearch {
+    hosts => ["http://localhost:9200"]
+    index => "your-index-name"
+    query => '{
+      "size": 0,
+      "aggs": {
         "jobs": {
-            "terms": {
-                "field": "job_name.keyword",
-                "size": 10000
-            },
-            "aggs": {
-                "avg_runtime": {
-                    "avg": {
-                        "script": {
-                            "source": "doc['duration'].value / 60"
-                        }
-                    }
-                }
+          "terms": {
+            "field": "jobname.keyword",
+            "size": 1000
+          },
+          "aggs": {
+            "avg_time": {
+              "avg": {
+                "field": "time_field"
+              }
             }
+          }
         }
-    }
+      }
+    }'
+    tags => ["average_data"]
+    schedule => "* * * * *"
+  }
 }
 
-# Execute the query
-response = es.search(index="your_index_name", body=query)
+filter {
+  if "average_data" in [tags] {
+    split { field => "[aggregations][jobs][buckets]" }
 
-# Build DataFrame
-records = []
-for bucket in response['aggregations']['jobs']['buckets']:
-    records.append({
-        "Job Name": bucket['key'],
-        "Average Run Time (mins)": round(bucket['avg_runtime']['value'], 2) if bucket['avg_runtime']['value'] else 0
-    })
+    mutate {
+      add_field => {
+        "jobname" => "%{[aggregations][jobs][buckets][key]}"
+        "avgtime" => "%{[aggregations][jobs][buckets][avg_time][value]}"
+      }
+    }
 
-df = pd.DataFrame(records)
+    mutate {
+      convert => {
+        "avgtime" => "float"
+      }
+      remove_field => ["@version", "@timestamp", "tags", "aggregations"]
+    }
+  }
+}
 
-# Save to CSV
-df.to_csv("average_job_runtime.csv", index=False)
-print("Saved to average_job_runtime.csv")
+output {
+  if "average_data" in [tags] {
+    csv {
+      path => "/path/to/output/avg_jobtime.csv"
+      fields => ["jobname", "avgtime"]
+      csv_options => {
+        "write_headers" => true
+      }
+    }
+  }
+}
