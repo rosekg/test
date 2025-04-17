@@ -1,23 +1,15 @@
-Sure! Here's a simplified and clearer version of your message:
-
-
----
-
-Subject: Request to Add In-Laws to Family Floater Mediclaim
-
-Dear Team,
-
-I would like to add my in-laws to my family floater Mediclaim policy.
-
-Both of them have diabetes (type 1 and type 2) and hypertension. My mother-in-law also has a pre-existing disease (PED) and has been hospitalized several times in the past 1.5 years.
-
-Do I need to submit any documents related to her PED for the Mediclaim nomination?
-
-Kindly explain the process in detail.
-
-Thank you.
-
-
----
-
-Let me know if you'd like to make it more formal or add anything else.
+filter {
+  ruby {
+    code => '
+      raw_odate = event.get("odate")
+      if raw_odate
+        raw_odate = raw_odate.to_s.strip  # Ensure it’s a string
+        event.set("job_odate", raw_odate)
+        if raw_odate.length == 8
+          formatted = "#{raw_odate[0..3]}-#{raw_odate[4..5]}-#{raw_odate[6..7]}"
+          event.set("job_odate_formatted", formatted)
+        end
+      end
+    '
+  }
+}
