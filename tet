@@ -1,18 +1,23 @@
-filter {
-  ruby {
-    code => '
-      job_duration = event.get("job_duration")
-      avg_runtime = event.get("job_average_run_mins")
+Sure! Here's a simplified and clearer version of your message:
 
-      if job_duration && avg_runtime
-        if job_duration > avg_runtime
-          event.set("flag", -1)
-        elsif job_duration == avg_runtime
-          event.set("flag", 0)
-        else
-          event.set("flag", 1)
-        end
-      end
-    '
-  }
-}
+
+---
+
+Subject: Request to Add In-Laws to Family Floater Mediclaim
+
+Dear Team,
+
+I would like to add my in-laws to my family floater Mediclaim policy.
+
+Both of them have diabetes (type 1 and type 2) and hypertension. My mother-in-law also has a pre-existing disease (PED) and has been hospitalized several times in the past 1.5 years.
+
+Do I need to submit any documents related to her PED for the Mediclaim nomination?
+
+Kindly explain the process in detail.
+
+Thank you.
+
+
+---
+
+Let me know if you'd like to make it more formal or add anything else.
