@@ -1,14 +1,19 @@
 filter {
   ruby {
     code => '
-      raw_odate = event.get("odate")
-      if raw_odate
-        raw_odate = raw_odate.to_s.strip  # Ensure it’s a string
-        event.set("job_odate", raw_odate)
-        if raw_odate.length == 8
-          formatted = "#{raw_odate[0..3]}-#{raw_odate[4..5]}-#{raw_odate[6..7]}"
-          event.set("job_odate_formatted", formatted)
+      duration = event.get("duration_mins").to_f
+      avg = event.get("avg_duration_mins").to_f
+      category = event.get("job_category").to_s
+
+      if duration > avg
+        diff = duration - avg
+        if diff <= 60
+          event.set("flag", 0)
+        elsif diff > 60 || category.downcase == "cata"
+          event.set("flag", 1)
         end
+      else
+        event.set("flag", -1)
       end
     '
   }
