@@ -1,20 +1,51 @@
-filter {
-  ruby {
-    code => '
-      duration = event.get("duration_mins").to_f
-      avg = event.get("avg_duration_mins").to_f
-      category = event.get("job_category").to_s
+input {
+  elasticsearch {
+    hosts => ["http://localhost:9200"]
+    index => "your-index-name"
+    query => '{
+      "size": 0,
+      "aggs": {
+        "jobs": {
+          "terms": {
+            "field": "jobname.keyword",
+            "size": 100
+          },
+          "aggs": {
+            "avg_time": {
+              "avg": {
+                "field": "time_taken"
+              }
+            }
+          }
+        }
+      }
+    }'
+    schedule => "* * * * *"
+    tags => ["average_data"]
+  }
+}
 
-      if duration > avg
-        diff = duration - avg
-        if diff <= 60
-          event.set("flag", 0)
-        elsif diff > 60 || category.downcase == "cata"
-          event.set("flag", 1)
+filter {
+  if "average_data" in [tags] {
+    ruby {
+      code => '
+        aggs = event.get("[aggregations][jobs][buckets]")
+        if aggs.is_a?(Array)
+          aggs.each do |bucket|
+            new_event = event.clone
+            new_event.set("jobname", bucket["key"])
+            new_event.set("avgtime", bucket["avg_time"]["value"].to_f.round)
+            new_event.remove("aggregations")
+            new_event.remove("tags")
+            new_event.remove("@version")
+            new_event.remove("@timestamp")
+            event.cancel
+            yield new_event
+          end
+        else
+          puts "Skipped: Aggregation buckets not found or not an array"
         end
-      else
-        event.set("flag", -1)
-      end
-    '
+      '
+    }
   }
 }
