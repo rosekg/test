@@ -1,63 +1,25 @@
-input {
-  elasticsearch {
-    hosts => ["https://your-es-host:9200"]
-    index => "your-index-name"
-    user => "your-username"
-    password => "your-password"
-    ssl => true
-    query => '{
-      "query": {
-        "range": {
-          "@timestamp": {
-            "gte": "now-10d/d",
-            "lte": "now"
-          }
-        }
-      }
-    }'
-    schedule => "* * * * *"
-    docinfo => false
-    tags => ["job_data"]
-  }
-}
+Here's a formal version of your message that you can send as an email to the team:
 
-filter {
-  if "job_data" in [tags] {
-    aggregate {
-      task_id => "%{jobname}"
-      code => "
-        map['count'] ||= 0
-        map['sum'] ||= 0
-        map['count'] += 1
-        map['sum'] += event.get('duration')
-      "
-      push_map_as_event_on_timeout => true
-      timeout_task_id_field => "jobname"
-      timeout => 60
-      timeout_tags => ['_aggregated']
-      timeout_code => "
-        event.set('jobname', event.get('jobname'))
-        avg = (event.get('sum').to_f / event.get('count')).round
-        event.set('avg_runtime', avg)
-      "
-    }
 
-    if "_aggregated" not in [tags] {
-      drop { }
-    }
-  }
-}
+---
 
-output {
-  if [jobname] and [avg_runtime] {
-    stdout {
-      codec => line { format => "Job: %{jobname}, AvgRuntime: %{avg_runtime}" }
-    }
+Subject: Ongoing GitHub Runner Issue – Update and Workaround
 
-    csv {
-      fields => ["jobname", "avg_runtime"]
-      path => "/path/to/output.csv"
-      flush_interval => 1
-    }
-  }
-}
+Dear Team,
+
+We would like to inform you that there is an ongoing issue with the GitHub runner, and the GitHub team is actively working on resolving it. A support ticket has also been raised with the SDLC team, and they are currently engaged in addressing the problem.
+
+In the meantime, for any urgent or critical deployments, a manual deployment option is available with support from the Alpha BDA team.
+
+We will keep you informed and provide an update once the issue has been fully resolved.
+
+Thank you for your understanding and cooperation.
+
+Best regards,
+[Your Name]
+[Your Position]
+
+
+---
+
+Let me know if you'd like to include any specific names, ticket IDs, or deadlines.
