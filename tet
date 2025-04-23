@@ -1,67 +1,63 @@
 input {
-  http_poller {
-    urls => {
-      agg_data => {
-        method => get
-        url => "http://localhost:9200/your-index-name/_search"
-        body => '{
-          "size": 0,
-          "aggs": {
-            "jobs": {
-              "terms": {
-                "field": "jobname.keyword",
-                "size": 100
-              },
-              "aggs": {
-                "avg_time": {
-                  "avg": {
-                    "field": "time_taken"
-                  }
-                }
-              }
-            }
+  elasticsearch {
+    hosts => ["https://your-es-host:9200"]
+    index => "your-index-name"
+    user => "your-username"
+    password => "your-password"
+    ssl => true
+    query => '{
+      "query": {
+        "range": {
+          "@timestamp": {
+            "gte": "now-10d/d",
+            "lte": "now"
           }
-        }'
-        headers => {
-          "Content-Type" => "application/json"
         }
       }
-    }
-    request_timeout => 60
-    schedule => { cron => "* * * * *" }
-    codec => "json"
-    tags => ["average_data"]
+    }'
+    schedule => "* * * * *"
+    docinfo => false
+    tags => ["job_data"]
   }
 }
 
 filter {
-  if "average_data" in [tags] {
-    ruby {
-      code => '
-        aggs = event.get("[aggregations][jobs][buckets]")
-        if aggs.is_a?(Array)
-          aggs.each do |bucket|
-            new_event = event.clone
-            new_event.set("jobname", bucket["key"])
-            new_event.set("avgtime", bucket["avg_time"]["value"].to_f.round)
-            event.cancel
-            yield new_event
-          end
-        else
-          puts "Skipped: No aggregation buckets"
-        end
-      '
+  if "job_data" in [tags] {
+    aggregate {
+      task_id => "%{jobname}"
+      code => "
+        map['count'] ||= 0
+        map['sum'] ||= 0
+        map['count'] += 1
+        map['sum'] += event.get('duration')
+      "
+      push_map_as_event_on_timeout => true
+      timeout_task_id_field => "jobname"
+      timeout => 60
+      timeout_tags => ['_aggregated']
+      timeout_code => "
+        event.set('jobname', event.get('jobname'))
+        avg = (event.get('sum').to_f / event.get('count')).round
+        event.set('avg_runtime', avg)
+      "
+    }
+
+    if "_aggregated" not in [tags] {
+      drop { }
     }
   }
 }
 
 output {
-  stdout {
-    codec => line { format => "Job: %{jobname}, AvgTime: %{avgtime}" }
-  }
-  csv {
-    fields => ["jobname", "avgtime"]
-    path => "/path/to/output.csv"
-    flush_interval => 1
+  if [jobname] and [avg_runtime] {
+    stdout {
+      codec => line { format => "Job: %{jobname}, AvgRuntime: %{avg_runtime}" }
+    }
+
+    csv {
+      fields => ["jobname", "avg_runtime"]
+      path => "/path/to/output.csv"
+      flush_interval => 1
+    }
   }
 }
