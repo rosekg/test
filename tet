@@ -1,25 +1,10 @@
-Here's a formal version of your message that you can send as an email to the team:
+e.dt.on('draw', function () {
+          let pageNumbers = [];
+          $(e.el.nativeElement)
+            .find('.paginate_button')
+            .not('.previous, .next')
+            .each(function () {
+              pageNumbers.push($(this).text());
+            });
 
-
----
-
-Subject: Ongoing GitHub Runner Issue – Update and Workaround
-
-Dear Team,
-
-We would like to inform you that there is an ongoing issue with the GitHub runner, and the GitHub team is actively working on resolving it. A support ticket has also been raised with the SDLC team, and they are currently engaged in addressing the problem.
-
-In the meantime, for any urgent or critical deployments, a manual deployment option is available with support from the Alpha BDA team.
-
-We will keep you informed and provide an update once the issue has been fully resolved.
-
-Thank you for your understanding and cooperation.
-
-Best regards,
-[Your Name]
-[Your Position]
-
-
----
-
-Let me know if you'd like to include any specific names, ticket IDs, or deadlines.
+          console.log("Visible Page Numbers:", pageNumbers);
