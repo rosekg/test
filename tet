@@ -1,10 +1,60 @@
-e.dt.on('draw', function () {
-          let pageNumbers = [];
-          $(e.el.nativeElement)
-            .find('.paginate_button')
-            .not('.previous, .next')
-            .each(function () {
-              pageNumbers.push($(this).text());
-            });
+const selectedMap = new Map();
 
-          console.log("Visible Page Numbers:", pageNumbers);
+
+function displayTable(e) {
+  setTimeout(function () {
+    window.dt = $(e.el.nativeElement).DataTable();
+
+    const info = window.dt.page.info();
+    window.startIndex = info.start;
+    window.endIndex = info.end;
+
+    // Reapply checkbox states when table is redrawn
+    $(e.el.nativeElement).on('draw.dt page.dt length.dt', function () {
+      const info = window.dt.page.info();
+      window.startIndex = info.start;
+      window.endIndex = info.end;
+
+      window.dt.rows({ page: 'current' }).every(function () {
+        const data = this.data();
+        const key = `${data['Hostname']}_${data['QID']}`;
+
+        const checkbox = $(this.node()).find('input[type="checkbox"]');
+        if (selectedMap.has(key)) {
+          checkbox.prop('checked', true);
+        } else {
+          checkbox.prop('checked', false);
+        }
+      });
+    });
+  });
+}
+
+
+
+
+function selectAll() {
+  window.dt.rows({ page: 'current' }).every(function () {
+    const data = this.data();
+    const key = `${data['Hostname']}_${data['QID']}`;
+
+    selectedMap.set(key, data);
+
+    const checkbox = $(this.node()).find('input[type="checkbox"]');
+    checkbox.prop('checked', true);
+  });
+
+  console.log("Selected records:", Array.from(selectedMap.values()));
+}
+
+
+
+function deselectAll() {
+  window.dt.rows({ page: 'current' }).every(function () {
+    const data = this.data();
+    const key = `${data['Hostname']}_${data['QID']}`;
+
+    selectedMap.delete(key);
+    $(this.node()).find('input[type="checkbox"]').prop('checked', false);
+  });
+}
