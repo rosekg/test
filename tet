@@ -1,60 +1,92 @@
-const selectedMap = new Map();
+let isSelecting = false;
+let selectedMap = new Map();
+window.startIndex = 0;
+window.endIndex = 0;
 
 
-function displayTable(e) {
-  setTimeout(function () {
+
+function displayTable(gridData, e) {
+  // ✅ Skip reinit during select all
+  if (isSelecting) {
+    console.log('⏩ Skipping re-init during selectAll operation');
+    return;
+  }
+
+  const alreadyInitialized = $.fn.DataTable.isDataTable(e.el.nativeElement);
+  if (alreadyInitialized) {
+    console.log('✅ Already initialized');
+  } else {
+    console.log('➡️ Initializing DataTable');
     window.dt = $(e.el.nativeElement).DataTable();
+  }
 
+  // ✅ Capture and track pagination info on all redraws
+  $(e.el.nativeElement).on('page.dt length.dt draw.dt', function () {
     const info = window.dt.page.info();
     window.startIndex = info.start;
     window.endIndex = info.end;
-
-    // Reapply checkbox states when table is redrawn
-    $(e.el.nativeElement).on('draw.dt page.dt length.dt', function () {
-      const info = window.dt.page.info();
-      window.startIndex = info.start;
-      window.endIndex = info.end;
-
-      window.dt.rows({ page: 'current' }).every(function () {
-        const data = this.data();
-        const key = `${data['Hostname']}_${data['QID']}`;
-
-        const checkbox = $(this.node()).find('input[type="checkbox"]');
-        if (selectedMap.has(key)) {
-          checkbox.prop('checked', true);
-        } else {
-          checkbox.prop('checked', false);
-        }
-      });
-    });
+    console.log("Updated Start:", window.startIndex, "End:", window.endIndex);
   });
 }
 
 
 
+function selectAll(gridData) {
+  isSelecting = true;
 
-function selectAll() {
-  window.dt.rows({ page: 'current' }).every(function () {
-    const data = this.data();
-    const key = `${data['Hostname']}_${data['QID']}`;
+  // ✅ Capture CURRENT page info FIRST
+  const info = window.dt.page.info();
+  const start = info.start;
+  const end = info.end;
+  const currentPage = info.page;
 
-    selectedMap.set(key, data);
+  console.log('Selecting from:', start, 'to', end);
 
-    const checkbox = $(this.node()).find('input[type="checkbox"]');
-    checkbox.prop('checked', true);
+  const keysOnPage = new Set();
+
+  // ✅ Loop through current page rows only
+  window.dt.rows({ page: 'current' }).every(function (rowIdx, tableLoop, rowLoop) {
+    const data = this.data(); // This will return DOM node or array depending on setup
+    const rowIndex = rowIdx;
+    const gridRow = gridData[start + rowLoop]; // Safe if data is aligned
+
+    if (gridRow) {
+      const key = `${gridRow.Name}_${gridRow.qid}`;
+      selectedMap.set(key, gridRow);
+      keysOnPage.add(key);
+
+      // ✅ Check the checkbox manually
+      const rowNode = this.node();
+      $(rowNode).find('input[type="checkbox"]').prop('checked', true);
+    }
   });
 
-  console.log("Selected records:", Array.from(selectedMap.values()));
+  console.log(`✅ Selected ${keysOnPage.size} records from page ${currentPage}`);
+
+  isSelecting = false;
 }
 
 
 
-function deselectAll() {
-  window.dt.rows({ page: 'current' }).every(function () {
-    const data = this.data();
-    const key = `${data['Hostname']}_${data['QID']}`;
 
-    selectedMap.delete(key);
-    $(this.node()).find('input[type="checkbox"]').prop('checked', false);
+function unselectAll(gridData) {
+  isSelecting = true;
+
+  const info = window.dt.page.info();
+  const start = info.start;
+  const end = info.end;
+
+  window.dt.rows({ page: 'current' }).every(function (rowIdx, tableLoop, rowLoop) {
+    const gridRow = gridData[start + rowLoop];
+    if (gridRow) {
+      const key = `${gridRow.Name}_${gridRow.qid}`;
+      selectedMap.delete(key);
+
+      const rowNode = this.node();
+      $(rowNode).find('input[type="checkbox"]').prop('checked', false);
+    }
   });
+
+  console.log(`❌ Unselected page ${info.page}`);
+  isSelecting = false;
 }
